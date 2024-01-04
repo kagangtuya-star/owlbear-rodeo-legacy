@@ -65,10 +65,10 @@ function Home() {
           Getting Started <HelpIcon />
         </Button>
         <Button m={2} onClick={() => setIsStartModalOpen(true)}>
-          Start Game
+          开始游戏
         </Button>
         <Button m={2} onClick={() => setIsJoinModalOpen(true)}>
-          Join Game
+          加入游戏
         </Button>
         <Text variant="caption" as="p" sx={{ textAlign: "center" }}>
           Legacy v{process.env.REACT_APP_VERSION}
@@ -86,7 +86,7 @@ function Home() {
             justifyContent: "center",
           }}
         >
-          Owlbear Rodeo 2.0
+          前往 Owlbear Rodeo 2.0
         </Button>
         <Flex mb={4} mt={0} sx={{ justifyContent: "center" }}>
           <Link href="https://www.reddit.com/r/OwlbearRodeo/">

@@ -25,10 +25,10 @@ function GettingStartedModal({
       style={{ content: { maxWidth: "450px" } }}
     >
       <Box>
-        <Label py={2}>Getting Started</Label>
+        <Label py={2}>入门帮助</Label>
         <Markdown source={gettingStarted} />
         <Text variant="body2" my={2}>
-          For more tutorials visit the <Link to="/how-to">How To</Link> page
+          更多教程请访问<Link to="/how-to">How To</Link>页面
         </Text>
       </Box>
     </Modal>

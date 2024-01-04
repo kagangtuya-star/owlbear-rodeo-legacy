@@ -45,7 +45,7 @@ function JoinModal({ isOpen, onRequestClose }: JoinModalProps) {
         m={2}
       >
         <Box as="form" onSubmit={handleSubmit}>
-          <Label htmlFor="id">Let me see your identification</Label>
+          <Label htmlFor="id">让我看看你的加入密钥</Label>
           <Input
             mt={1}
             mb={3}
@@ -57,7 +57,7 @@ function JoinModal({ isOpen, onRequestClose }: JoinModalProps) {
           />
           <Flex>
             <Button sx={{ flexGrow: 1 }} disabled={!gameId}>
-              Join
+              加入！
             </Button>
           </Flex>
         </Box>

@@ -58,7 +58,7 @@ function StartModal({ isOpen, onRequestClose }: StartModalProps) {
         m={2}
       >
         <Box as="form" onSubmit={handleSubmit}>
-          <Label htmlFor="password">Game Password</Label>
+          <Label htmlFor="password">游戏房间密码</Label>
           <Input
             my={1}
             id="password"
@@ -75,12 +75,12 @@ function StartModal({ isOpen, onRequestClose }: StartModalProps) {
                 checked={usePassword}
                 onChange={handleUsePasswordChange}
               />
-              Use password
+              使用密码
             </Label>
           </Box>
           <Flex>
             <Button sx={{ flexGrow: 1 }} disabled={!password && usePassword}>
-              Start
+              开始！
             </Button>
           </Flex>
         </Box>
