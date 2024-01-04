@@ -25,7 +25,7 @@ function TokenSettings({ token, onSettingsChange }: TokenSettingsProps) {
   return (
     <Flex sx={{ flexDirection: "column" }}>
       <Box mt={2} sx={{ flexGrow: 1 }}>
-        <Label htmlFor="name">Name</Label>
+        <Label htmlFor="name">名字</Label>
         <Input
           name="name"
           value={(token && token.name) || ""}
@@ -35,7 +35,7 @@ function TokenSettings({ token, onSettingsChange }: TokenSettingsProps) {
         />
       </Box>
       <Box mt={2}>
-        <Label>Default Category</Label>
+        <Label>默认类型</Label>
         <Select
           options={categorySettings}
           value={
@@ -52,7 +52,7 @@ function TokenSettings({ token, onSettingsChange }: TokenSettingsProps) {
         />
       </Box>
       <Box mt={2} sx={{ flexGrow: 1 }}>
-        <Label htmlFor="tokenSize">Default Size</Label>
+        <Label htmlFor="tokenSize">默认大小</Label>
         <Input
           type="number"
           name="tokenSize"
@@ -66,7 +66,7 @@ function TokenSettings({ token, onSettingsChange }: TokenSettingsProps) {
         />
       </Box>
       <Box my={2} mb={3} sx={{ flexGrow: 1 }}>
-        <Label htmlFor="label">Default Label</Label>
+        <Label htmlFor="label">默认标签名</Label>
         <Input
           name="label"
           value={(token && token.defaultLabel) || ""}

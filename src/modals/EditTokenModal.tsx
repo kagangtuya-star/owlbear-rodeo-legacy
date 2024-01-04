@@ -96,7 +96,7 @@ function EditTokenModal({
         }}
       >
         <Label pt={2} pb={1} px={3}>
-          Edit token
+          编辑 token
         </Label>
         <SimpleBar
           style={{
@@ -114,7 +114,7 @@ function EditTokenModal({
           />
         </SimpleBar>
         <Button m={3} onClick={handleSave}>
-          Save
+          保存
         </Button>
       </Flex>
     </Modal>

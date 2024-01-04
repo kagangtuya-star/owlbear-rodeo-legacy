@@ -267,7 +267,7 @@ function SelectTokensModal({
               }}
             >
               <Label pt={2} pb={1}>
-                Edit or import a token
+                编辑或导入token
               </Label>
               <TileActionBar
                 onAdd={openImageDialog}
@@ -315,7 +315,7 @@ function SelectTokensModal({
                 onClick={onRequestClose}
                 mt={2}
               >
-                Done
+                完成
               </Button>
             </Flex>
           </GroupProvider>
