@@ -9,10 +9,10 @@
       }
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ],
   "headers": [
@@ -35,10 +35,5 @@
     "REACT_APP_MAINTENANCE": "false",
     "REACT_APP_VERSION": "1.10.2",
     "NODE_VERSION": "16.16.0"
-  },
-  "github": {
-    "enabled": true,
-    "autoAlias": true,
-    "silent": false
   }
 }
