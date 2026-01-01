@@ -1,3 +1,4 @@
+import "./polyfills/xhrResponseText";
 import ReactDOM from "react-dom";
 import App from "./App";
 import Modal from "react-modal";

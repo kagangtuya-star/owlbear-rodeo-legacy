@@ -135,6 +135,9 @@ export async function createMapFromFile(
               ...resized,
               id: assetId,
               owner: userId,
+              source: "local" as const,
+              size: resized.file.length,
+              originalName: file.name,
             };
             assets.push(asset);
           }
@@ -144,7 +147,14 @@ export async function createMapFromFile(
       const thumbnailImage = await createThumbnail(image, file.type);
       const thumbnailId = uuid();
       if (thumbnailImage) {
-        const thumbnail = { ...thumbnailImage, id: thumbnailId, owner: userId };
+        const thumbnail = {
+          ...thumbnailImage,
+          id: thumbnailId,
+          owner: userId,
+          source: "local" as const,
+          size: thumbnailImage.file.length,
+          originalName: file.name,
+        };
         assets.push(thumbnail);
       }
 
@@ -155,6 +165,9 @@ export async function createMapFromFile(
         height: image.height,
         mime: file.type,
         owner: userId,
+        size: buffer.byteLength,
+        originalName: file.name,
+        source: "local" as const,
       };
       assets.push(fileAsset);
 

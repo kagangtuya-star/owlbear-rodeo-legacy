@@ -4,6 +4,7 @@ import { Socket, Server as IOServer } from "socket.io";
 import Auth from "./Auth";
 import GameRepository from "./GameRepository";
 import GameState from "./GameState";
+import AssetStorage from "./AssetStorage";
 import { Update } from "../helpers/diff";
 import { Map } from "../types/Map";
 import { MapState } from "../types/MapState";
@@ -14,10 +15,12 @@ import { Pointer } from "../types/Pointer";
 export default class GameServer {
   private readonly io: IOServer;
   private gameRepo;
+  private assetStorage: AssetStorage;
 
-  constructor(io: IOServer) {
+  constructor(io: IOServer, assetStorage: AssetStorage) {
     this.io = io;
     this.gameRepo = new GameRepository();
+    this.assetStorage = assetStorage;
   }
 
   public initaliseSocketServer(httpServer: HttpServer) {
@@ -29,12 +32,47 @@ export default class GameServer {
       const gameState = new GameState(this.io, socket, this.gameRepo);
       let _gameId: string;
 
-      socket.on("signal", (data: string) => {
+      socket.on("relay_chunk", (payload: any) => {
         try {
-          const { to, signal } = JSON.parse(data);
-          this.io.to(to).emit("signal", { from: socket.id, signal });
+          const { to, chunkId, index, total, data } = payload || {};
+          if (
+            typeof to !== "string" ||
+            typeof chunkId !== "string" ||
+            typeof index !== "number" ||
+            typeof total !== "number" ||
+            data === undefined
+          ) {
+            return;
+          }
+
+          let gameId: string | undefined;
+          if (_gameId) {
+            gameId = _gameId;
+          } else {
+            gameId = gameState.getGameId();
+            if (gameId) {
+              _gameId = gameId;
+            }
+          }
+
+          if (!gameId) {
+            return;
+          }
+
+          const partyState = this.gameRepo.getPartyState(gameId);
+          if (!partyState || !(to in partyState)) {
+            return;
+          }
+
+          this.io.to(to).emit("relay_chunk", {
+            from: socket.id,
+            chunkId,
+            index,
+            total,
+            data,
+          });
         } catch (error) {
-          console.error("SIGNAL_ERROR", error);
+          console.error("RELAY_CHUNK_ERROR", error);
         }
       });
 
@@ -60,6 +98,10 @@ export default class GameServer {
           // Update party state
           const partyState = this.gameRepo.getPartyState(gameId);
           socket.to(gameId).emit("party_state", partyState);
+
+          if (!partyState || Object.keys(partyState).length === 0) {
+            this.assetStorage.markGameForCleanup(gameId);
+          }
         } catch (error) {
           console.error("DISCONNECT_ERROR", error);
         }
@@ -92,6 +134,8 @@ export default class GameServer {
               socket.emit("auth_error");
             }
           }
+
+          this.assetStorage.markGameActive(gameId);
           this.io.to(gameId).emit("joined_game", socket.id);
         } catch (error) {
           console.error("JOIN_ERROR", error);

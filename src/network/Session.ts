@@ -1,387 +1,42 @@
 import io, { Socket } from "socket.io-client";
 import msgParser from "socket.io-msgpack-parser";
 import { EventEmitter } from "events";
-
-import Connection, { DataProgressEvent } from "./Connection";
+import { encode, decode } from "@msgpack/msgpack";
+import shortid from "shortid";
+import { deflate, inflate } from "pako";
 
 import { omit } from "../helpers/shared";
-import { SignalData } from "simple-peer";
 
-/**
- * @property {string} id - The socket id of the peer
- * @property {Connection} connection - The actual peer connection
- * @property {boolean} initiator - Is this peer the initiator of the connection
- * @property {boolean} ready - Ready for data to be sent
- */
+const MAX_CHUNK_SIZE = 16000;
+
+type RelayChunkPayload = {
+  from: string;
+  chunkId: string;
+  index: number;
+  total: number;
+  data: Uint8Array;
+};
+
+type OutgoingChunkPayload = {
+  chunkId: string;
+  index: number;
+  total: number;
+  data: Uint8Array;
+};
+
+type IncomingChunk = {
+  buffers: (Uint8Array | undefined)[];
+  count: number;
+  total: number;
+};
+
 export type SessionPeer = {
   id: string;
-  connection: Connection;
-  initiator: boolean;
-  ready: boolean;
 };
 
 export type PeerData = any;
 
 export type PeerReply = (id: string, data: PeerData, chunkId?: string) => void;
-
-/**
- *
- * Handles connections to multiple peers
- */
-class Session extends EventEmitter {
-  /**
-   * The socket io connection
-   */
-  socket?: Socket;
-
-  /**
-   * A mapping of socket ids to session peers
-   *
-   * @type {Object.<string, SessionPeer>}
-   */
-  peers: Record<string, SessionPeer>;
-
-  get id() {
-    return this.socket?.id;
-  }
-
-  _iceServers: RTCIceServer[] = [];
-
-  // Store party id and password for reconnect
-  _gameId: string = "";
-  _password: string = "";
-
-  constructor() {
-    super();
-    this.peers = {};
-    // Signal connected peers of a closure on refresh
-    window.addEventListener("beforeunload", this._handleUnload.bind(this));
-  }
-
-  /**
-   * Connect to the websocket
-   */
-  async connect() {
-    try {
-      if (
-        !process.env.REACT_APP_BROKER_URL ||
-        process.env.REACT_APP_MAINTENANCE === "true"
-      ) {
-        this.emit("status", "offline");
-        return;
-      }
-      this.socket = io(process.env.REACT_APP_BROKER_URL!, {
-        withCredentials: true,
-        parser: msgParser,
-        transports: ["websocket"],
-      });
-      const response = await fetch(
-        `${process.env.REACT_APP_BROKER_URL}/iceservers`
-      );
-      if (!response.ok) {
-        throw Error("Unable to fetch ICE servers");
-      }
-      const data = await response.json();
-      this._iceServers = data.iceServers;
-
-      this.socket.on("player_joined", this._handlePlayerJoined.bind(this));
-      this.socket.on("player_left", this._handlePlayerLeft.bind(this));
-      this.socket.on("joined_game", this._handleJoinedGame.bind(this));
-      this.socket.on("signal", this._handleSignal.bind(this));
-      this.socket.on("auth_error", this._handleAuthError.bind(this));
-      this.socket.on("game_expired", this._handleGameExpired.bind(this));
-      this.socket.on("disconnect", this._handleSocketDisconnect.bind(this));
-      this.socket.io.on("reconnect", this._handleSocketReconnect.bind(this));
-      this.socket.on("force_update", this._handleForceUpdate.bind(this));
-
-      this.emit("status", "ready");
-    } catch (error: any) {
-      this.emit("status", "offline");
-    }
-  }
-
-  disconnect() {
-    this.socket?.disconnect();
-  }
-
-  /**
-   * Send data to a single peer
-   *
-   * @param sessionId - The socket id of the player to send to
-   * @param eventId - The id of the event to send
-   */
-  sendTo(sessionId: string, eventId: string, data: PeerData, chunkId?: string) {
-    if (!(sessionId in this.peers)) {
-      if (!this._addPeer(sessionId, true)) {
-        return;
-      }
-    }
-
-    if (!this.peers[sessionId].ready) {
-      this.peers[sessionId].connection.once("connect", () => {
-        this.peers[sessionId].connection.sendObject(
-          { id: eventId, data },
-          chunkId
-        );
-      });
-    } else {
-      this.peers[sessionId].connection.sendObject(
-        { id: eventId, data },
-        chunkId
-      );
-    }
-  }
-
-  /**
-   * Start streaming to a peer
-   *
-   * @param {string} sessionId - The socket id of the player to stream to
-   * @param {MediaStreamTrack} track
-   * @param {MediaStream} stream
-   */
-  startStreamTo(
-    sessionId: string,
-    track: MediaStreamTrack,
-    stream: MediaStream
-  ) {
-    if (!(sessionId in this.peers)) {
-      if (!this._addPeer(sessionId, true)) {
-        return;
-      }
-    }
-
-    if (!this.peers[sessionId].ready) {
-      this.peers[sessionId].connection.once("connect", () => {
-        this.peers[sessionId].connection.addTrack(track, stream);
-      });
-    } else {
-      this.peers[sessionId].connection.addTrack(track, stream);
-    }
-  }
-
-  /**
-   * End streaming to a peer
-   *
-   * @param {string} sessionId - The socket id of the player to stream to
-   * @param {MediaStreamTrack} track
-   * @param {MediaStream} stream
-   */
-  endStreamTo(sessionId: string, track: MediaStreamTrack, stream: MediaStream) {
-    if (sessionId in this.peers) {
-      this.peers[sessionId].connection.removeTrack(track, stream);
-    }
-  }
-
-  /**
-   * Join a party
-   *
-   * @param {string} gameId - the id of the party to join
-   * @param {string} password - the password of the party
-   */
-  async joinGame(gameId: string, password: string) {
-    if (typeof gameId !== "string" || typeof password !== "string") {
-      console.error(
-        "Unable to join game: invalid game ID or password",
-        gameId,
-        password
-      );
-      return;
-    }
-
-    this._gameId = gameId;
-    this._password = password;
-    this.socket?.emit(
-      "join_game",
-      gameId,
-      password,
-      process.env.REACT_APP_VERSION
-    );
-    this.emit("status", "joining");
-  }
-
-  /**
-   * Add a new peer connection
-   * @param {string} id
-   * @param {boolean} initiator
-   * @returns {boolean} True if peer was added successfully
-   */
-  _addPeer(id: string, initiator: boolean): boolean {
-    try {
-      const connection = new Connection({
-        initiator,
-        trickle: true,
-        config: { iceServers: this._iceServers },
-      });
-
-      // Up max listeners to 100 to account for up to 100 tokens on load
-      connection.setMaxListeners && connection.setMaxListeners(100);
-
-      const peer = { id, connection, initiator, ready: false };
-
-      const reply: PeerReply = (id, data, chunkId) => {
-        peer.connection.sendObject({ id, data }, chunkId);
-      };
-
-      const handleSignal = (signal: SignalData) => {
-        this.socket?.emit("signal", JSON.stringify({ to: peer.id, signal }));
-      };
-
-      const handleConnect = () => {
-        if (peer.id in this.peers) {
-          this.peers[peer.id].ready = true;
-        }
-        const peerConnectEvent: PeerConnectEvent = {
-          peer,
-          reply,
-        };
-        this.emit("peerConnect", peerConnectEvent);
-      };
-
-      const handleDataComplete = (data: any) => {
-        const peerDataEvent: PeerDataEvent = {
-          peer,
-          id: data.id,
-          data: data.data,
-          reply: reply,
-        };
-        this.emit("peerData", peerDataEvent);
-      };
-
-      const handleDataProgress = ({ id, count, total }: DataProgressEvent) => {
-        const peerDataProgressEvent: PeerDataProgressEvent = {
-          peer,
-          id,
-          count,
-          total,
-          reply,
-        };
-
-        this.emit("peerDataProgress", peerDataProgressEvent);
-      };
-
-      const handleTrack = (track: MediaStreamTrack, stream: MediaStream) => {
-        const peerTrackAddedEvent: PeerTrackAddedEvent = {
-          peer,
-          track,
-          stream,
-        };
-        this.emit("peerTrackAdded", peerTrackAddedEvent);
-        track.addEventListener("mute", () => {
-          const peerTrackRemovedEvent: PeerTrackRemovedEvent = {
-            peer,
-            track,
-            stream,
-          };
-          this.emit("peerTrackRemoved", peerTrackRemovedEvent);
-        });
-      };
-
-      const handleClose = () => {
-        const peerDisconnectEvent: PeerDisconnectEvent = { peer };
-        this.emit("peerDisconnect", peerDisconnectEvent);
-        if (peer.id in this.peers) {
-          peer.connection.destroy();
-          this.peers = omit(this.peers, [peer.id]);
-        }
-      };
-
-      const handleError = (error: PeerError) => {
-        const peerErrorEvent: PeerErrorEvent = {
-          peer,
-          error,
-        };
-        this.emit("peerError", peerErrorEvent);
-        if (peer.id in this.peers) {
-          peer.connection.destroy();
-          this.peers = omit(this.peers, [peer.id]);
-        }
-      };
-
-      peer.connection.on("signal", handleSignal.bind(this));
-      peer.connection.on("connect", handleConnect.bind(this));
-      peer.connection.on("dataComplete", handleDataComplete.bind(this));
-      peer.connection.on("dataProgress", handleDataProgress.bind(this));
-      peer.connection.on("track", handleTrack.bind(this));
-      peer.connection.on("close", handleClose.bind(this));
-      peer.connection.on("error", handleError.bind(this));
-
-      this.peers[id] = peer;
-
-      return true;
-    } catch (error: any) {
-      this.emit("peerError", { error });
-      for (let peer of Object.values(this.peers)) {
-        peer.connection && peer.connection.destroy();
-      }
-      return false;
-    }
-  }
-
-  _handleJoinedGame() {
-    this.emit("status", "joined");
-  }
-
-  _handleGameExpired() {
-    this.emit("gameExpired");
-  }
-
-  _handlePlayerJoined(id: string) {
-    this.emit("playerJoined", id);
-  }
-
-  _handlePlayerLeft(id: string) {
-    this.emit("playerLeft", id);
-    if (id in this.peers) {
-      this.peers[id].connection.destroy();
-      delete this.peers[id];
-    }
-  }
-
-  _handleSignal(data: { from: string; signal: SignalData }) {
-    const { from, signal } = data;
-    if (!(from in this.peers)) {
-      if (!this._addPeer(from, false)) {
-        return;
-      }
-    }
-    this.peers[from].connection.signal(signal);
-  }
-
-  _handleAuthError() {
-    this.emit("status", "auth");
-  }
-
-  _handleUnload() {
-    for (let peer of Object.values(this.peers)) {
-      peer.connection && peer.connection.destroy();
-    }
-  }
-
-  _handleSocketDisconnect() {
-    this.emit("status", "reconnecting");
-    for (let peer of Object.values(this.peers)) {
-      peer.connection && peer.connection.destroy();
-    }
-  }
-
-  _handleSocketReconnect() {
-    if (this.socket) this.socket.sendBuffer = [];
-    if (this._gameId) {
-      this.joinGame(this._gameId, this._password);
-    }
-  }
-
-  _handleForceUpdate() {
-    this.socket?.disconnect();
-    this.emit("status", "needs_update");
-  }
-}
-
-export type PeerConnectEvent = {
-  peer: SessionPeer;
-  reply: PeerReply;
-};
-export type PeerConnectEventHandler = (event: PeerConnectEvent) => void;
 
 export type PeerDataEvent = {
   peer: SessionPeer;
@@ -389,7 +44,6 @@ export type PeerDataEvent = {
   data: PeerData;
   reply: PeerReply;
 };
-export type PeerDataEventHandler = (event: PeerDataEvent) => void;
 
 export type PeerDataProgressEvent = {
   peer: SessionPeer;
@@ -398,32 +52,6 @@ export type PeerDataProgressEvent = {
   total: number;
   reply: PeerReply;
 };
-export type PeerDataProgressEventHandler = (
-  event: PeerDataProgressEvent
-) => void;
-
-export type PeerTrackAddedEvent = {
-  peer: SessionPeer;
-  track: MediaStreamTrack;
-  stream: MediaStream;
-};
-export type PeerTrackAddedEventHandler = (event: PeerTrackAddedEvent) => void;
-
-export type PeerTrackRemovedEvent = {
-  peer: SessionPeer;
-  track: MediaStreamTrack;
-  stream: MediaStream;
-};
-export type PeerTrackRemovedEventHandler = (
-  event: PeerTrackRemovedEvent
-) => void;
-
-export type PeerDisconnectEvent = { peer: SessionPeer };
-export type PeerDisconnectEventHandler = (event: PeerDisconnectEvent) => void;
-
-export type PeerError = Error & { code: string };
-export type PeerErrorEvent = { peer: SessionPeer; error: PeerError };
-export type PeerErrorEventHandler = (event: PeerErrorEvent) => void;
 
 export type SessionStatus =
   | "ready"
@@ -439,29 +67,290 @@ export type PlayerJoinedHandler = (id: string) => void;
 export type PlayerLeftHandler = (id: string) => void;
 export type GameExpiredHandler = () => void;
 
+class Session extends EventEmitter {
+  socket?: Socket;
+  private _incomingChunks: Record<string, IncomingChunk>;
+  private _gameId: string;
+  private _password: string;
+  private peers: Record<string, SessionPeer>;
+
+  constructor() {
+    super();
+    this._incomingChunks = {};
+    this._gameId = "";
+    this._password = "";
+    this.peers = {};
+  }
+
+  get id() {
+    return this.socket?.id;
+  }
+
+  async connect() {
+    try {
+      if (
+        !process.env.REACT_APP_BROKER_URL ||
+        process.env.REACT_APP_MAINTENANCE === "true"
+      ) {
+        this.emit("status", "offline");
+        return;
+      }
+
+      this.socket = io(process.env.REACT_APP_BROKER_URL!, {
+        withCredentials: true,
+        parser: msgParser,
+        transports: ["websocket"],
+      });
+
+      this.registerSocketHandlers();
+      this.emit("status", "ready");
+    } catch (error: any) {
+      this.emit("status", "offline");
+    }
+  }
+
+  disconnect() {
+    this.socket?.disconnect();
+    this.socket = undefined;
+    this._incomingChunks = {};
+    this.peers = {};
+  }
+
+  joinGame(gameId: string, password: string) {
+    if (typeof gameId !== "string" || typeof password !== "string") {
+      console.error(
+        "Unable to join game: invalid game ID or password",
+        gameId,
+        password
+      );
+      return;
+    }
+
+    this._gameId = gameId;
+    this._password = password;
+
+    this.socket?.emit(
+      "join_game",
+      gameId,
+      password,
+      process.env.REACT_APP_VERSION
+    );
+    this.emit("status", "joining");
+  }
+
+  sendTo(sessionId: string, eventId: string, data: PeerData, chunkId?: string) {
+    if (!this.socket || !sessionId) {
+      return;
+    }
+
+    try {
+      const message = encode({ id: eventId, data });
+      const compressed = deflate(message);
+      const id = chunkId || shortid.generate();
+      const chunks = this.chunk(compressed, id);
+
+      for (let chunk of chunks) {
+        this.socket.emit("relay_chunk", {
+          to: sessionId,
+          ...chunk,
+        });
+      }
+    } catch (error) {
+      console.error("SESSION_SEND_ERROR", error);
+    }
+  }
+
+  private chunk(data: Uint8Array, chunkId: string): OutgoingChunkPayload[] {
+    const size = data.byteLength;
+    const total = Math.ceil(size / MAX_CHUNK_SIZE) || 1;
+    const chunks: OutgoingChunkPayload[] = [];
+
+    for (let index = 0; index < total; index++) {
+      const start = index * MAX_CHUNK_SIZE;
+      const end = Math.min(start + MAX_CHUNK_SIZE, size);
+      const slice = data.slice(start, end);
+      chunks.push({ chunkId, index, total, data: slice });
+    }
+
+    return chunks;
+  }
+
+  private registerSocketHandlers() {
+    if (!this.socket) {
+      return;
+    }
+
+    this.socket.on("player_joined", this.handlePlayerJoined);
+    this.socket.on("player_left", this.handlePlayerLeft);
+    this.socket.on("joined_game", this.handleJoinedGame);
+    this.socket.on("auth_error", this.handleAuthError);
+    this.socket.on("game_expired", this.handleGameExpired);
+    this.socket.on("disconnect", this.handleSocketDisconnect);
+    this.socket.io.on("reconnect", this.handleSocketReconnect);
+    this.socket.on("force_update", this.handleForceUpdate);
+    this.socket.on("relay_chunk", this.handleRelayChunk);
+  }
+
+  private handlePlayerJoined = (id: string) => {
+    this.peers[id] = { id };
+    this.emit("playerJoined", id);
+  };
+
+  private handlePlayerLeft = (id: string) => {
+    if (id in this.peers) {
+      this.peers = omit(this.peers, [id]);
+    }
+    this.emit("playerLeft", id);
+    this.cleanupIncomingChunks(id);
+  };
+
+  private handleJoinedGame = () => {
+    this.emit("status", "joined");
+  };
+
+  private handleGameExpired = () => {
+    this.emit("gameExpired");
+  };
+
+  private handleAuthError = () => {
+    this.emit("status", "auth");
+  };
+
+  private handleForceUpdate = () => {
+    this.socket?.disconnect();
+    this.emit("status", "needs_update");
+  };
+
+  private handleSocketDisconnect = () => {
+    this.emit("status", "reconnecting");
+    this._incomingChunks = {};
+    this.peers = {};
+  };
+
+  private handleSocketReconnect = () => {
+    if (this.socket) {
+      this.socket.sendBuffer = [];
+    }
+    if (this._gameId) {
+      this.joinGame(this._gameId, this._password);
+    }
+  };
+
+  private handleRelayChunk = (payload: RelayChunkPayload) => {
+    if (!payload || typeof payload.from !== "string") {
+      return;
+    }
+    const { from, chunkId, index, total } = payload;
+    let { data } = payload;
+
+    if (!(data instanceof Uint8Array)) {
+      if (Array.isArray(data)) {
+        data = Uint8Array.from(data);
+      } else if (data && typeof data === "object" && "buffer" in data) {
+        data = new Uint8Array((data as any).buffer);
+      } else if (data && typeof data === "object") {
+        // msgpack may serialize Uint8Array as plain object {0: x, 1: y, ...}
+        const values = Object.values(data);
+        if (values.length > 0 && values.every(v => typeof v === "number")) {
+          data = Uint8Array.from(values as number[]);
+        } else {
+          return;
+        }
+      } else {
+        return;
+      }
+    }
+
+    const key = `${from}:${chunkId}`;
+    let chunkState = this._incomingChunks[key];
+    if (!chunkState || chunkState.total !== total) {
+      chunkState = {
+        buffers: new Array(total),
+        count: 0,
+        total,
+      };
+    }
+
+    if (!chunkState.buffers[index]) {
+      chunkState.count += 1;
+    }
+    chunkState.buffers[index] = data;
+    this._incomingChunks[key] = chunkState;
+
+    const reply: PeerReply = (id, replyData, replyChunkId) => {
+      this.sendTo(from, id, replyData, replyChunkId);
+    };
+
+    this.emit("peerDataProgress", {
+      peer: { id: from },
+      id: chunkId,
+      count: chunkState.count,
+      total: chunkState.total,
+      reply,
+    });
+
+    if (chunkState.count === chunkState.total) {
+      try {
+        const merged = this.mergeChunks(chunkState.buffers);
+        const decompressed = inflate(merged);
+        const decoded = decode(decompressed) as { id: string; data: PeerData };
+        this.emit("peerData", {
+          peer: { id: from },
+          id: decoded.id,
+          data: decoded.data,
+          reply,
+        });
+      } catch (error) {
+        console.error("SESSION_RELAY_DECODE_ERROR", error);
+      } finally {
+        delete this._incomingChunks[key];
+      }
+    }
+  };
+
+  private mergeChunks(buffers: (Uint8Array | undefined)[]) {
+    const totalLength = buffers.reduce((acc, buf) => {
+      if (!buf) {
+        return acc;
+      }
+      return acc + buf.byteLength;
+    }, 0);
+    const merged = new Uint8Array(totalLength);
+    let offset = 0;
+    for (let i = 0; i < buffers.length; i++) {
+      const buffer = buffers[i];
+      if (!buffer) {
+        continue;
+      }
+      merged.set(buffer, offset);
+      offset += buffer.byteLength;
+    }
+    return merged;
+  }
+
+  private cleanupIncomingChunks(peerId: string) {
+    for (let key of Object.keys(this._incomingChunks)) {
+      if (key.startsWith(`${peerId}:`)) {
+        delete this._incomingChunks[key];
+      }
+    }
+  }
+}
+
 declare interface Session {
-  /** Peer Connect Event - A peer has connected */
-  on(event: "peerConnect", listener: PeerConnectEventHandler): this;
-  /** Peer Data Event - Data received by a peer */
-  on(event: "peerData", listener: PeerDataEventHandler): this;
-  /** Peer Data Progress Event - Part of some data received by a peer */
-  on(event: "peerDataProgress", listener: PeerDataProgressEventHandler): this;
-  /** Peer Track Added Event - A `MediaStreamTrack` was added by a peer */
-  on(event: "peerTrackAdded", listener: PeerTrackAddedEventHandler): this;
-  /** Peer Track Removed Event - A `MediaStreamTrack` was removed by a peer */
-  on(event: "peerTrackRemoved", listener: PeerTrackRemovedEventHandler): this;
-  /** Peer Disconnect Event - A peer has disconnected */
-  on(event: "peerDisconnect", listener: PeerDisconnectEventHandler): this;
-  /** Peer Error Event - An error occured with a peer connection */
-  on(event: "peerError", listener: PeerErrorEventHandler): this;
-  /** Session Status Event - Status of the session has changed */
+  on(event: "peerData", listener: (event: PeerDataEvent) => void): this;
+  on(event: "peerDataProgress", listener: (event: PeerDataProgressEvent) => void): this;
   on(event: "status", listener: SessionStatusHandler): this;
-  /** Player Joined Event - A player has joined the game */
   on(event: "playerJoined", listener: PlayerJoinedHandler): this;
-  /** Player Left Event - A player has left the game */
   on(event: "playerLeft", listener: PlayerLeftHandler): this;
-  /** Game Expired Event - A joining game has expired */
   on(event: "gameExpired", listener: GameExpiredHandler): this;
+
+  off(event: "peerData", listener: (event: PeerDataEvent) => void): this;
+  off(event: "peerDataProgress", listener: (event: PeerDataProgressEvent) => void): this;
+  off(event: "status", listener: SessionStatusHandler): this;
+  off(event: "playerJoined", listener: PlayerJoinedHandler): this;
+  off(event: "playerLeft", listener: PlayerLeftHandler): this;
+  off(event: "gameExpired", listener: GameExpiredHandler): this;
 }
 
 export default Session;

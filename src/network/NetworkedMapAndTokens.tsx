@@ -13,6 +13,7 @@ import useNetworkedState from "../hooks/useNetworkedState";
 import useMapActions from "../hooks/useMapActions";
 
 import Session, { PeerDataEvent, PeerDataProgressEvent } from "./Session";
+import useAssetTransfer from "./useAssetTransfer";
 
 import Action from "../actions/Action";
 
@@ -24,6 +25,7 @@ import GlobalImageDrop from "../components/image/GlobalImageDrop";
 import { Map as MapType } from "../types/Map";
 import { MapState } from "../types/MapState";
 import {
+  Asset,
   AssetManifest,
   AssetManifestAsset,
   AssetManifestAssets,
@@ -46,7 +48,13 @@ import {
 /**
  * @param {NetworkedMapProps} props
  */
-function NetworkedMapAndTokens({ session }: { session: Session }) {
+function NetworkedMapAndTokens({
+  session,
+  gameId,
+}: {
+  session: Session;
+  gameId: string;
+}) {
   const { addToast } = useToasts();
   const userId = useUserId();
   const partyState = useParty();
@@ -119,6 +127,8 @@ function NetworkedMapAndTokens({ session }: { session: Session }) {
     });
   }
 
+  const { assetApiBase, uploadAsset, downloadAsset } = useAssetTransfer(gameId);
+
   // Keep track of assets we are already requesting to prevent from loading them multiple times
   const requestingAssetsRef = useRef(new Set());
 
@@ -139,16 +149,19 @@ function NetworkedMapAndTokens({ session }: { session: Session }) {
           continue;
         }
 
-        const owner = Object.values(partyState).find(
-          (player) => player.userId === asset.owner
-        );
+        const ownerEntry = Object.entries(partyState).find(([, player]) => {
+          return player.userId === asset.owner;
+        });
 
-        // Ensure requests are added before any async operation to prevent them from sending twice
+        const ownerSessionId = ownerEntry?.[0];
+        const ownerState = ownerEntry?.[1];
+
+        // Ensure requests are added before any async operation to prevent duplicate sends
         requestingAssetsRef.current.add(asset.id);
 
         const cachedAsset = await getAsset(asset.id);
-        if (!owner) {
-          // Add no owner toast if we don't have asset in out cache
+        if (!ownerState || !ownerSessionId) {
+          // Add no owner toast if we don't have asset in our cache
           if (!cachedAsset) {
             // TODO: Stop toast from appearing multiple times
             addToast("Unable to find owner for asset");
@@ -157,11 +170,25 @@ function NetworkedMapAndTokens({ session }: { session: Session }) {
           continue;
         }
 
+        if (!assetApiBase) {
+          addToast("图片服务未配置");
+          requestingAssetsRef.current.delete(asset.id);
+          continue;
+        }
+
+        const targetSessionId = ownerState.sessionId || ownerSessionId;
+
         if (cachedAsset) {
           requestingAssetsRef.current.delete(asset.id);
-        } else if (owner.sessionId) {
+        } else if (targetSessionId) {
           assetLoadStart(asset.id);
-          session.sendTo(owner.sessionId, "assetRequest", asset);
+          session.sendTo(targetSessionId, "assetRequest", {
+            id: asset.id,
+            gameId,
+          });
+        } else {
+          // 无法立即请求，解除锁定以便后续重试
+          requestingAssetsRef.current.delete(asset.id);
         }
       }
     }
@@ -175,6 +202,8 @@ function NetworkedMapAndTokens({ session }: { session: Session }) {
     addToast,
     getAsset,
     assetLoadStart,
+    assetApiBase,
+    gameId,
   ]);
 
   /**
@@ -357,23 +386,101 @@ function NetworkedMapAndTokens({ session }: { session: Session }) {
   useEffect(() => {
     async function handlePeerData({ id, data, reply }: PeerDataEvent) {
       if (id === "assetRequest") {
-        const asset = await getAsset(data.id);
-        if (asset) {
-          reply("assetResponseSuccess", asset, data.id);
-        } else {
-          reply("assetResponseFail", data.id, data.id);
+        const requestedGameId =
+          typeof data?.gameId === "string" ? data.gameId : gameId;
+        if (requestedGameId !== gameId) {
+          if (typeof data?.id === "string") {
+            reply("assetResponseFail", data.id, data.id);
+          }
+          return;
         }
+
+        const asset = await getAsset(data.id);
+        if (!asset) {
+          reply("assetResponseFail", data?.id, data?.id);
+          return;
+        }
+
+        let remoteUrl = asset.remoteUrl;
+        if (!remoteUrl) {
+          try {
+            const response = await uploadAsset(asset);
+            remoteUrl = response.url;
+            await putAsset({
+              ...asset,
+              remoteUrl,
+              size: response.size ?? asset.size,
+              originalName: response.originalName ?? asset.originalName,
+              source: asset.source ?? "uploaded",
+            });
+          } catch (error) {
+            console.error("ASSET_UPLOAD_ON_DEMAND_FAILED", error);
+            reply("assetResponseSuccess", asset, asset.id);
+            return;
+          }
+        }
+
+        reply(
+          "assetResponseUrl",
+          {
+            id: asset.id,
+            url: remoteUrl,
+            mime: asset.mime,
+            width: asset.width,
+            height: asset.height,
+            owner: asset.owner,
+            size: asset.size,
+            originalName: asset.originalName,
+          },
+          asset.id
+        );
+        return;
+      }
+
+      if (id === "assetResponseUrl") {
+        const assetId = data?.id;
+        const url = data?.url;
+        if (typeof assetId !== "string" || typeof url !== "string") {
+          return;
+        }
+
+        try {
+          const buffer = await downloadAsset(url);
+          const assetFromServer: Asset = {
+            id: assetId,
+            owner: data?.owner ?? "unknown",
+            mime: data?.mime ?? "application/octet-stream",
+            width: data?.width ?? 0,
+            height: data?.height ?? 0,
+            file: buffer,
+            remoteUrl: url,
+            size: data?.size,
+            originalName: data?.originalName,
+            source: "uploaded",
+          };
+          await putAsset(assetFromServer);
+          assetProgressUpdate({ id: assetId, total: 1, count: 1 });
+        } catch (error) {
+          console.error("ASSET_DOWNLOAD_FAILED", error);
+          addToast("图片下载失败，请稍后重试");
+        } finally {
+          requestingAssetsRef.current.delete(assetId);
+        }
+        return;
       }
 
       if (id === "assetResponseSuccess") {
         const asset = data;
         await putAsset(asset);
         requestingAssetsRef.current.delete(asset.id);
+        return;
       }
 
       if (id === "assetResponseFail") {
         const assetId = data;
         requestingAssetsRef.current.delete(assetId);
+        assetProgressUpdate({ id: assetId, total: 1, count: 1 });
+        addToast("资源传输失败，所有者未找到文件");
       }
     }
 

@@ -416,10 +416,13 @@ function Token({
     tokenName = tokenName + "-locked";
   }
 
+  const animatedGroupProps = props as any;
+  const AnimatedGroup = animated.Group as any;
+
   return (
     <>
-      <animated.Group
-        {...props}
+      <AnimatedGroup
+        {...animatedGroupProps}
         width={tokenWidth}
         height={tokenHeight}
         draggable={draggable}
@@ -495,7 +498,7 @@ function Token({
             ) : null}
           </Group>
         ) : null}
-      </animated.Group>
+      </AnimatedGroup>
       <Transformer
         active={transformerActive}
         nodes={

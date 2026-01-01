@@ -153,11 +153,18 @@ function SelectMapModal({
   }
 
   async function handleImageUpload(file: File) {
-    if (userId) {
-      setIsLoading(true);
+    if (!userId) {
+      return;
+    }
+    setIsLoading(true);
+    try {
       const { map, assets } = await createMapFromFile(file, userId);
       await addMap(map);
       await addAssets(assets);
+    } catch (error) {
+      console.error("MAP_IMPORT_FAILED", error);
+      addToast("导入地图失败，请稍后重试");
+    } finally {
       setIsLoading(false);
     }
   }

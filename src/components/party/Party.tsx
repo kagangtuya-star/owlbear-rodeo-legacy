@@ -5,7 +5,6 @@ import SimpleBar from "simplebar-react";
 import AddPartyMemberButton from "./AddPartyMemberButton";
 import Nickname from "./Nickname";
 import ChangeNicknameButton from "./ChangeNicknameButton";
-import StartStreamButton from "./StartStreamButton";
 import SettingsButton from "../SettingsButton";
 import StartTimerButton from "./StartTimerButton";
 import Timer from "./Timer";
@@ -16,27 +15,13 @@ import useSetting from "../../hooks/useSetting";
 import { useParty } from "../../contexts/PartyContext";
 import { usePlayerState, usePlayerUpdater } from "../../contexts/PlayerContext";
 import { DiceRoll } from "../../types/Dice";
-import {
-  StreamEndEventHandler,
-  StreamStartEventHandler,
-} from "../../types/Events";
 import { Timer as TimerType } from "../../types/Timer";
 
 type PartyProps = {
   gameId: string;
-  stream: MediaStream | null;
-  partyStreams: Record<string, MediaStream>;
-  onStreamStart: StreamStartEventHandler;
-  onStreamEnd: StreamEndEventHandler;
 };
 
-function Party({
-  gameId,
-  stream,
-  partyStreams,
-  onStreamStart,
-  onStreamEnd,
-}: PartyProps) {
+function Party({ gameId }: PartyProps) {
   const setPlayerState = usePlayerUpdater();
   const playerState = usePlayerState();
   const partyState = useParty();
@@ -139,7 +124,7 @@ function Party({
             width: "100%",
             minWidth: "112px",
             padding: "0 16px",
-            height: "calc(100% - 232px)",
+            height: "calc(100% - 200px)",
           }}
         >
           <Nickname
@@ -150,7 +135,6 @@ function Party({
             <Nickname
               nickname={nickname}
               key={id}
-              stream={partyStreams[id]}
               diceRolls={dice.share ? dice.rolls : undefined}
             />
           ))}
@@ -172,11 +156,6 @@ function Party({
             onChange={handleNicknameChange}
           />
           <AddPartyMemberButton gameId={gameId} />
-          <StartStreamButton
-            onStreamStart={onStreamStart}
-            onStreamEnd={onStreamEnd}
-            stream={stream}
-          />
           <StartTimerButton
             onTimerStart={handleTimerStart}
             onTimerStop={handleTimerStop}

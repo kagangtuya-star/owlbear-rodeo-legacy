@@ -1,7 +1,9 @@
 import { useEffect, useState, useRef } from "react";
-import { Rect, Text } from "react-konva";
+import type { ComponentType, ReactNode, Ref } from "react";
+import { Group, Rect, Text } from "react-konva";
 import Konva from "konva";
 import { useSpring, animated } from "@react-spring/konva";
+import type { SpringValue } from "@react-spring/core";
 
 import { useUserId } from "../../contexts/UserIdContext";
 import {
@@ -30,6 +32,39 @@ import Transformer from "./Transformer";
 
 const defaultFontSize = 144;
 const minFontSize = 16;
+
+type KonvaEventHandler = (event: Konva.KonvaEventObject<any>) => void;
+
+type NoteGroupEvents = {
+  onClick?: KonvaEventHandler;
+  onTap?: KonvaEventHandler;
+  onDragStart?: KonvaEventHandler;
+  onDragEnd?: KonvaEventHandler;
+  onDragMove?: KonvaEventHandler;
+  onMouseDown?: KonvaEventHandler;
+  onMouseUp?: KonvaEventHandler;
+  onTouchStart?: KonvaEventHandler;
+  onTouchEnd?: KonvaEventHandler;
+  onMouseEnter?: KonvaEventHandler;
+  onMouseLeave?: KonvaEventHandler;
+};
+
+type AnimatedGroupProps = Omit<Konva.ContainerConfig, "x" | "y"> &
+  NoteGroupEvents & {
+    children?: ReactNode;
+    ref?: Ref<Konva.Group>;
+    x?: number | SpringValue<number>;
+    y?: number | SpringValue<number>;
+  };
+
+// 缩减动画组件的类型层级，避免 TS2589 的无限展开
+const animatedFactory = animated as unknown as (
+  component: ComponentType<any>
+) => ComponentType<any>;
+
+const AnimatedGroup = animatedFactory(
+  Group as unknown as ComponentType<AnimatedGroupProps>
+) as ComponentType<AnimatedGroupProps>;
 
 type NoteProps = {
   note: NoteType;
@@ -222,7 +257,7 @@ function Note({
   const previousHeight = usePrevious(mapHeight);
   const resized = mapWidth !== previousWidth || mapHeight !== previousHeight;
   const skipAnimation = note.lastModifiedBy === userId || resized;
-  const props = useSpring({
+  const springProps = useSpring<{ x: number; y: number }>({
     x: noteX,
     y: noteY,
     immediate: skipAnimation,
@@ -237,8 +272,8 @@ function Note({
 
   return (
     <>
-      <animated.Group
-        {...props}
+      <AnimatedGroup
+        {...springProps}
         id={note.id}
         onClick={handleClick}
         onTap={handleClick}
@@ -294,7 +329,7 @@ function Note({
         />
         {/* Use an invisible text block to work out text sizing */}
         <Text visible={false} ref={textRef} text={note.text} wrap="none" />
-      </animated.Group>
+      </AnimatedGroup>
       <Transformer
         active={(!note.locked && selected) || isTransforming}
         nodes={noteRef.current ? [noteRef.current] : []}

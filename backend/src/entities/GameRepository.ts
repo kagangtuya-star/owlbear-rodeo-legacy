@@ -27,7 +27,7 @@ export default class GameRepository {
   }
 
   getPartyState(gameId: string): PartyState {
-    const game = this.games[gameId];
+    const game = this.getOrCreateGame(gameId);
 
     const result = game.getPartyState();
 
@@ -35,7 +35,7 @@ export default class GameRepository {
   }
 
   getGamePasswordHash(gameId: string): string {
-    const game = this.games[gameId];
+    const game = this.getOrCreateGame(gameId);
 
     const result = game.getGamePasswordHash();
 
@@ -43,9 +43,18 @@ export default class GameRepository {
   }
 
   setGamePasswordHash(gameId: string, hash: string): void {
-    const game = this.games[gameId];
+    const game = this.getOrCreateGame(gameId);
 
     game.setGamePasswordHash(hash);
+  }
+
+  private getOrCreateGame(gameId: string): Game {
+    let game = this.games[gameId];
+    if (!game) {
+      game = new Game(gameId, "");
+      this.games[gameId] = game;
+    }
+    return game;
   }
 
   setPlayerState(
@@ -53,17 +62,23 @@ export default class GameRepository {
     playerState: PlayerState,
     playerId: string
   ): void {
-    const game = this.games[gameId];
+    const game = this.getOrCreateGame(gameId);
     game.setPlayerState(playerState, playerId);
   }
 
   deletePlayer(gameId: string, playerId: string): void {
     const game = this.games[gameId];
+    if (!game) {
+      return;
+    }
     game.deletePlayer(playerId);
   }
 
   deleteGameData(gameId: string): void {
     const game = this.games[gameId];
+    if (!game) {
+      return;
+    }
     game.deleteGameData();
   }
 
@@ -72,15 +87,18 @@ export default class GameRepository {
     field: "map" | "mapState" | "manifest",
     value: any
   ): void {
-    const game = this.games[gameId];
+    const game = this.getOrCreateGame(gameId);
     game.setState(field, value);
   }
 
   getState(
     gameId: string,
     field: "map" | "mapState" | "manifest"
-  ): MapState | Manifest | Map {
+  ): MapState | Manifest | Map | undefined {
     const game = this.games[gameId];
+    if (!game) {
+      return undefined;
+    }
     const result = game.getState(field);
     return result;
   }

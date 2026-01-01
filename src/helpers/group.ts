@@ -36,7 +36,7 @@ export function getGroupItems(group: Group): GroupItem[] {
 /**
  * Transform an array of groups into their assosiated items
  */
-export function itemsFromGroups<Item>(
+export function itemsFromGroups<Item extends Record<PropertyKey, any>>(
   groups: Group[],
   allItems: Item[],
   itemKey = "id"
@@ -46,8 +46,12 @@ export function itemsFromGroups<Item>(
 
   for (let group of groups) {
     const groupItems = getGroupItems(group);
-    const items = groupItems.map((item) => allItemsById[item.id]);
-    groupedItems.push(...items);
+    for (let item of groupItems) {
+      const matched = allItemsById[item.id];
+      if (matched) {
+        groupedItems.push(matched);
+      }
+    }
   }
 
   return groupedItems;

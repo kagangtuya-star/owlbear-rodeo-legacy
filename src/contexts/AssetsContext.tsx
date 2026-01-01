@@ -9,6 +9,7 @@ import useDebounce from "../hooks/useDebounce";
 
 import { omit } from "../helpers/shared";
 import { Asset } from "../types/Asset";
+import useAssetTransfer from "../network/useAssetTransfer";
 
 export type GetAssetEventHanlder = (
   assetId: string
@@ -28,8 +29,15 @@ const AssetsContext =
 // 100 MB max cache size
 const maxCacheSize = 1e8;
 
-export function AssetsProvider({ children }: { children: React.ReactNode }) {
+export function AssetsProvider({
+  children,
+  gameId,
+}: {
+  children: React.ReactNode;
+  gameId: string;
+}) {
   const { worker, database, databaseStatus } = useDatabase();
+  const { assetApiBase, uploadAsset } = useAssetTransfer(gameId);
 
   useEffect(() => {
     if (databaseStatus === "loaded") {
@@ -48,11 +56,36 @@ export function AssetsProvider({ children }: { children: React.ReactNode }) {
 
   const addAssets = useCallback<AddAssetsEventHandler>(
     async (assets) => {
-      if (database) {
-        await database.table("assets").bulkAdd(assets);
+      if (!database) {
+        return;
       }
+
+      const processedAssets: Asset[] = [];
+      for (let asset of assets) {
+        let nextAsset = asset;
+        const shouldUpload =
+          assetApiBase &&
+          asset.file &&
+          asset.file.length > 0 &&
+          (!asset.remoteUrl || asset.source === "local");
+
+        if (shouldUpload) {
+          const response = await uploadAsset(asset);
+          nextAsset = {
+            ...asset,
+            remoteUrl: response.url,
+            size: response.size ?? asset.size ?? asset.file.length,
+            originalName: response.originalName ?? asset.originalName,
+            source: "uploaded",
+          };
+        }
+
+        processedAssets.push(nextAsset);
+      }
+
+      await database.table("assets").bulkAdd(processedAssets);
     },
-    [database]
+    [assetApiBase, database, uploadAsset]
   );
 
   const putAsset = useCallback<PutAssetEventsHandler>(
@@ -167,11 +200,17 @@ export function AssetURLsProvider({ children }: { children: React.ReactNode }) {
       let newURLs = { ...prevURLs };
       for (let asset of assets) {
         if (asset && newURLs[asset.id]?.url === null) {
+          let resolvedUrl: string;
+          if (asset.remoteUrl) {
+            resolvedUrl = asset.remoteUrl;
+          } else {
+            resolvedUrl = URL.createObjectURL(
+              new Blob([asset.file], { type: asset.mime })
+            );
+          }
           newURLs[asset.id] = {
             ...newURLs[asset.id],
-            url: URL.createObjectURL(
-              new Blob([asset.file], { type: asset.mime })
-            ),
+            url: resolvedUrl,
           };
         }
       }
@@ -188,7 +227,9 @@ export function AssetURLsProvider({ children }: { children: React.ReactNode }) {
       let urlsToCleanup = [];
       for (let url of Object.values(prevURLs)) {
         if (url.references <= 0) {
-          url.url && URL.revokeObjectURL(url.url);
+          if (url.url && url.url.startsWith("blob:")) {
+            URL.revokeObjectURL(url.url);
+          }
           urlsToCleanup.push(url.id);
         }
       }

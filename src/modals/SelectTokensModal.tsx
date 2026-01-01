@@ -153,10 +153,16 @@ function SelectTokensModal({
       return;
     }
     setIsLoading(true);
-    const { token, assets } = await createTokenFromFile(file, userId);
-    await addToken(token);
-    await addAssets(assets);
-    setIsLoading(false);
+    try {
+      const { token, assets } = await createTokenFromFile(file, userId);
+      await addToken(token);
+      await addAssets(assets);
+    } catch (error) {
+      console.error("TOKEN_IMPORT_FAILED", error);
+      addToast("导入标记失败，请稍后重试");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   /**

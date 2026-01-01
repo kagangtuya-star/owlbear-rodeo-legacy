@@ -11,19 +11,46 @@ import Global from "./entities/Global";
 import HealthcheckController from "./controllers/HealthcheckController";
 import IceServer from "./entities/IceServer";
 import IceServerController from "./controllers/IceServerController";
+import AssetStorage from "./entities/AssetStorage";
+import AssetController from "./controllers/AssetController";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const app: Application = express();
 const port: string | number = Global.CONNECTION_PORT;
 const server = new AppServer(app, port);
 
-const whitelist = new RegExp(Global.ORIGIN_WHITELIST);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const resolveDuration = (value: string | undefined, fallback: number) => {
+  if (!value) {
+    return fallback;
+  }
+  const parsed = Number(value);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return fallback;
+};
+
+const assetBaseDir =
+  process.env.ASSET_CACHE_DIR || path.resolve(__dirname, "../../cache/assets");
+const assetTtlMs = resolveDuration(
+  process.env.ASSET_CACHE_TTL_MS,
+  24 * 60 * 60 * 1000
+);
+const postGameAssetTtlMs = resolveDuration(
+  process.env.ASSET_CACHE_POST_GAME_TTL_MS,
+  15 * 60 * 1000
+);
 
 const io = new Server(server, {
   cookie: false,
   cors: {
-    origin: whitelist,
+    origin: true,
     methods: ["GET", "POST"],
-    credentials: true,
+    credentials: false,
   },
   serveClient: false,
   maxHttpBufferSize: 1e7,
@@ -31,29 +58,43 @@ const io = new Server(server, {
 });
 
 const corsConfig: CorsOptions = {
-  origin: function (origin: any, callback: any) {
-    if (!origin || whitelist.test(origin)) {
-      return callback(null, true);
-    }
-    const msg =
-      "The CORS policy for this site does not allow access from the specified Origin.";
-    return callback(new Error(msg), false);
-  },
+  origin: true,
+  credentials: false,
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
 };
+
+const jsonParser = express.json({ limit: "100mb" });
 
 const iceServer = new IceServer();
 
-const globalMiddleware: Array<RequestHandler> = [helmet(), cors(corsConfig)];
+const assetStorage = new AssetStorage(
+  assetBaseDir,
+  assetTtlMs,
+  postGameAssetTtlMs
+);
+
+const globalMiddleware: Array<RequestHandler> = [
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginEmbedderPolicy: false,
+  }),
+  cors(corsConfig),
+  jsonParser,
+];
+
+app.options("*", cors(corsConfig));
 
 const controllers: Array<Controller> = [
   new HealthcheckController(),
   new IceServerController(iceServer),
+  new AssetController(assetStorage),
 ];
 
 server.loadMiddleware(globalMiddleware);
 server.loadControllers(controllers);
 const httpServer = server.run();
-const game = new GameServer(io);
+const game = new GameServer(io, assetStorage);
 game.initaliseSocketServer(httpServer);
 game.run();
 

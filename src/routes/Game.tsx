@@ -1,13 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { Flex, Box, Text } from "theme-ui";
+import { Flex } from "theme-ui";
 import { useParams } from "react-router-dom";
 import Konva from "konva";
 
-import Banner from "../components/banner/Banner";
 import ReconnectBanner from "../components/banner/ReconnectBanner";
 import OfflineBanner from "../components/banner/OfflineBanner";
 import LoadingOverlay from "../components/LoadingOverlay";
-import Link from "../components/Link";
 import MapLoadingOverlay from "../components/map/MapLoadingOverlay";
 import UpgradingLoadingOverlay from "../components/UpgradingLoadingOverlay";
 
@@ -29,7 +27,7 @@ import { MapLoadingProvider } from "../contexts/MapLoadingContext";
 import NetworkedMapAndTokens from "../network/NetworkedMapAndTokens";
 import NetworkedParty from "../network/NetworkedParty";
 
-import Session, { PeerErrorEvent, SessionStatus } from "../network/Session";
+import Session, { SessionStatus } from "../network/Session";
 
 function Game() {
   const { id: gameId }: { id: string } = useParams();
@@ -42,22 +40,6 @@ function Game() {
   const [maintenance, setMaintenance] = useState(
     process.env.REACT_APP_MAINTENANCE === "true"
   );
-
-  // Handle session errors
-  const [peerError, setPeerError] = useState<string | null>(null);
-  useEffect(() => {
-    function handlePeerError({ error }: PeerErrorEvent) {
-      if (error.code === "ERR_WEBRTC_SUPPORT") {
-        setPeerError("WebRTC not supported.");
-      } else if (error.code === "ERR_CREATE_OFFER") {
-        setPeerError("Unable to connect to party.");
-      }
-    }
-    session.on("peerError", handlePeerError);
-    return () => {
-      session.off("peerError", handlePeerError);
-    };
-  }, [session]);
 
   useEffect(() => {
     function handleStatus(status: SessionStatus) {
@@ -116,7 +98,7 @@ function Game() {
   const mapStageRef = useRef<Konva.Stage | null>(null);
 
   return (
-    <AssetsProvider>
+    <AssetsProvider gameId={gameId}>
       <AssetURLsProvider>
         <MapLoadingProvider>
           <MapDataProvider>
@@ -132,19 +114,8 @@ function Game() {
                       }}
                     >
                       <NetworkedParty session={session} gameId={gameId} />
-                      <NetworkedMapAndTokens session={session} />
+                      <NetworkedMapAndTokens session={session} gameId={gameId} />
                     </Flex>
-                    <Banner
-                      isOpen={!!peerError}
-                      onRequestClose={() => setPeerError(null)}
-                    >
-                      <Box p={1}>
-                        <Text as="p" variant="body2">
-                          {peerError} See <Link to="/faq#connection">FAQ</Link>{" "}
-                          for more information.
-                        </Text>
-                      </Box>
-                    </Banner>
                     <OfflineBanner isOpen={sessionStatus === "offline"} />
                     <ReconnectBanner
                       isOpen={sessionStatus === "reconnecting"}

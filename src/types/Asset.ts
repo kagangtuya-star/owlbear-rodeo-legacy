@@ -1,3 +1,5 @@
+export type AssetSource = "uploaded" | "external" | "local";
+
 export type Asset = {
   file: Uint8Array;
   width: number;
@@ -5,6 +7,10 @@ export type Asset = {
   id: string;
   owner: string;
   mime: string;
+  remoteUrl?: string;
+  size?: number;
+  originalName?: string;
+  source?: AssetSource;
 };
 
 export type AssetManifestAsset = Pick<Asset, "id" | "owner">;

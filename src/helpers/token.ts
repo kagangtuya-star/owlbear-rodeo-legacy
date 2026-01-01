@@ -114,7 +114,14 @@ export async function createTokenFromFile(
       const thumbnailImage = await createThumbnail(image, file.type);
       const thumbnailId = uuid();
       if (thumbnailImage) {
-        const thumbnail = { ...thumbnailImage, id: thumbnailId, owner: userId };
+        const thumbnail = {
+          ...thumbnailImage,
+          id: thumbnailId,
+          owner: userId,
+          source: "local" as const,
+          size: thumbnailImage.file.length,
+          originalName: file.name,
+        };
         assets.push(thumbnail);
       }
 
@@ -125,6 +132,9 @@ export async function createTokenFromFile(
         height: image.height,
         mime: file.type,
         owner: userId,
+        size: buffer.byteLength,
+        originalName: file.name,
+        source: "local" as const,
       };
       assets.push(fileAsset);
 

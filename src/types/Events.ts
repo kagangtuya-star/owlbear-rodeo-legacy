@@ -58,9 +58,6 @@ export type NoteDragEventHandler = (
 export type DiceShareChangeEventHandler = (share: boolean) => void;
 export type DiceRollsChangeEventHandler = (newRolls: DiceRoll[]) => void;
 
-export type StreamStartEventHandler = (stream: MediaStream) => void;
-export type StreamEndEventHandler = (stream: MediaStream) => void;
-
 export type TimerStartEventHandler = (event: Timer) => void;
 export type TimerStopEventHandler = () => void;
 
