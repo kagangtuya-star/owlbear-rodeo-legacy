@@ -21,6 +21,7 @@ import FullScreenIcon from "../../icons/FullScreenIcon";
 import FullScreenExitIcon from "../../icons/FullScreenExitIcon";
 import NoteToolIcon from "../../icons/NoteToolIcon";
 import SelectToolIcon from "../../icons/SelectToolIcon";
+import PasteIcon from "../../icons/PasteIcon";
 
 import UndoButton from "../controls/shared/UndoButton";
 import RedoButton from "../controls/shared/RedoButton";
@@ -36,6 +37,7 @@ import {
 import { Settings } from "../../types/Settings";
 
 import { useKeyboard } from "../../contexts/KeyboardContext";
+import { useImageImport } from "../../contexts/ImageImportContext";
 
 import shortcuts from "../../shortcuts";
 import { useUserId } from "../../contexts/UserIdContext";
@@ -77,6 +79,7 @@ function MapContols({
   const [fullScreen, setFullScreen] = useSetting("map.fullScreen");
 
   const userId = useUserId();
+  const imageImport = useImageImport();
 
   const disabledControls = useMemo(() => {
     const isOwner = map && map.owner === userId;
@@ -193,6 +196,22 @@ function MapContols({
         />
       ),
     },
+    ...(imageImport?.openImportFromUrl
+      ? [
+          {
+            id: "import",
+            component: (
+              <IconButton
+                aria-label="通过 URL 导入"
+                title="通过 URL 导入"
+                onClick={imageImport.openImportFromUrl}
+              >
+                <PasteIcon />
+              </IconButton>
+            ),
+          },
+        ]
+      : []),
     {
       id: "tools",
       component: tools.map((tool) => (

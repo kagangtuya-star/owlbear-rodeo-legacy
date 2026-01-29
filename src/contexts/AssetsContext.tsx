@@ -132,14 +132,21 @@ function normalizeAssetFile(file: any): Uint8Array | ArrayBuffer | null {
     return null;
   }
   if (file instanceof Uint8Array || file instanceof ArrayBuffer) {
+    if (file.byteLength === 0) {
+      return null;
+    }
     return file;
   }
   if (Array.isArray(file)) {
-    return new Uint8Array(file);
+    const buffer = new Uint8Array(file);
+    return buffer.byteLength === 0 ? null : buffer;
   }
   if (file && typeof file === "object" && "buffer" in file) {
     const buffer = (file as any).buffer;
     if (buffer instanceof ArrayBuffer) {
+      if (buffer.byteLength === 0) {
+        return null;
+      }
       return buffer;
     }
   }

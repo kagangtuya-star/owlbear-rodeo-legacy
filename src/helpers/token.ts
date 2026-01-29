@@ -4,6 +4,7 @@ import Konva from "konva";
 
 import blobToBuffer from "./blobToBuffer";
 import { createThumbnail, getImageOutline } from "./image";
+import { getFileNameFromUrl, guessImageMimeFromUrl } from "./url";
 import Vector2 from "./Vector2";
 
 import { Token, FileToken, TokenCategory } from "../types/Token";
@@ -164,6 +165,117 @@ export async function createTokenFromFile(
     image.onerror = reject;
     image.src = url;
   });
+}
+
+export async function createTokenFromUrl(
+  url: string,
+  userId: string
+): Promise<{ token: Token; assets: Asset[] }> {
+  if (!url) {
+    return Promise.reject();
+  }
+  function loadImage(source: string, useCors: boolean) {
+    return new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      if (useCors) {
+        img.crossOrigin = "anonymous";
+      }
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = source;
+    });
+  }
+
+  let name = "Unknown Token";
+  let category: TokenCategory = "character";
+  let defaultSize = 1;
+  const fileName = getFileNameFromUrl(url, `remote-${Date.now()}`);
+  if (fileName) {
+    name = fileName.toLowerCase();
+    // @ts-ignore Check match all exists
+    if (name.matchAll) {
+      const sizeMatches = [...name.matchAll(/(\d+) ?(x|X) ?(\d+)/g)];
+      for (let match of sizeMatches) {
+        const matchX = parseInt(match[1]);
+        const matchY = parseInt(match[3]);
+        if (
+          !isNaN(matchX) &&
+          !isNaN(matchY) &&
+          matchX < 256
+        ) {
+          defaultSize = matchX;
+        }
+      }
+    }
+    if (/(\b|_)prop(\b|_)/.test(name)) {
+      category = "prop";
+      name = name.replace(/(\b|_)prop(\b|_)/, "");
+    } else if (/(\b|_)mount(\b|_)/.test(name)) {
+      category = "vehicle";
+      name = name.replace(/(\b|_)mount(\b|_)/, "");
+    } else if (/(\b|_)attachment(\b|_)/.test(name)) {
+      category = "attachment";
+      name = name.replace(/(\b|_)attachment(\b|_)/, "");
+    }
+    name = name.replace(/\.[^/.]+$/, "");
+    name = name.replace(/(\[ ?|\( ?)?\d+ ?(x|X) ?\d+( ?\]| ?\))?/, "");
+    name = name.replace(/ +/g, " ");
+    name = name.trim();
+    name = Case.capital(name);
+  }
+  const image =
+    (await loadImage(url, true).catch(() => loadImage(url, false))) as
+      | HTMLImageElement
+      | undefined;
+  if (!image) {
+    return Promise.reject();
+  }
+  const mime = guessImageMimeFromUrl(url);
+
+  const fileAsset = {
+    id: uuid(),
+    file: new Uint8Array(),
+    width: image.width,
+    height: image.height,
+    mime,
+    owner: userId,
+    remoteUrl: url,
+    originalName: fileName,
+    source: "external" as const,
+  };
+
+  let outline: Outline;
+  try {
+    outline = getImageOutline(image);
+  } catch (error) {
+    outline = {
+      type: "rect",
+      x: 0,
+      y: 0,
+      width: image.width,
+      height: image.height,
+    };
+  }
+
+  const token: FileToken = {
+    name,
+    defaultSize,
+    thumbnail: fileAsset.id,
+    file: fileAsset.id,
+    id: uuid(),
+    type: "file",
+    created: Date.now(),
+    lastModified: Date.now(),
+    owner: userId,
+    defaultCategory: category,
+    defaultLabel: "",
+    hideInSidebar: false,
+    width: image.width,
+    height: image.height,
+    outline,
+  };
+
+  return { token, assets: [fileAsset] };
 }
 
 export function clientPositionToMapPosition(

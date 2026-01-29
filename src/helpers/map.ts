@@ -3,6 +3,7 @@ import Case from "case";
 
 import blobToBuffer from "./blobToBuffer";
 import { resizeImage, createThumbnail } from "./image";
+import { getFileNameFromUrl, guessImageMimeFromUrl } from "./url";
 import {
   getGridDefaultInset,
   getGridSizeFromImage,
@@ -207,4 +208,111 @@ export async function createMapFromFile(
     image.onerror = reject;
     image.src = url;
   });
+}
+
+export async function createMapFromUrl(
+  url: string,
+  userId: string
+): Promise<{ map: Map; assets: Asset[] }> {
+  if (!url) {
+    return Promise.reject();
+  }
+  function loadImage(source: string, useCors: boolean) {
+    return new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      if (useCors) {
+        img.crossOrigin = "anonymous";
+      }
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = source;
+    });
+  }
+
+  const image =
+    (await loadImage(url, true).catch(() => loadImage(url, false))) as
+      | HTMLImageElement
+      | undefined;
+  if (!image) {
+    return Promise.reject();
+  }
+  const fileName = getFileNameFromUrl(url, `remote-${Date.now()}`);
+
+  let gridSize;
+  let name = "Unknown Map";
+  if (fileName) {
+    if (fileName.matchAll) {
+      const gridMatches = [...fileName.matchAll(/(\d+) ?(x|X) ?(\d+)/g)];
+      for (let match of gridMatches) {
+        const matchX = parseInt(match[1]);
+        const matchY = parseInt(match[3]);
+        if (!isNaN(matchX) && !isNaN(matchY) && gridSizeVaild(matchX, matchY)) {
+          gridSize = { x: matchX, y: matchY };
+        }
+      }
+    }
+
+    if (!gridSize) {
+      try {
+        gridSize = await getGridSizeFromImage(image);
+      } catch (error) {
+        // Fallback below
+      }
+    }
+
+    name = fileName.replace(/\.[^/.]+$/, "");
+    name = name.replace(/(\[ ?|\( ?)?\d+ ?(x|X) ?\d+( ?\]| ?\))?/, "");
+    name = name.replace(/ +/g, " ");
+    name = name.trim();
+    name = Case.capital(name);
+  }
+
+  if (!gridSize) {
+    gridSize = { x: 22, y: 22 };
+  }
+
+  const mime = guessImageMimeFromUrl(url);
+  const fileAsset = {
+    id: uuid(),
+    file: new Uint8Array(),
+    width: image.width,
+    height: image.height,
+    mime,
+    owner: userId,
+    remoteUrl: url,
+    originalName: fileName,
+    source: "external" as const,
+  };
+
+  const map: FileMap = {
+    name,
+    resolutions: {},
+    file: fileAsset.id,
+    thumbnail: fileAsset.id,
+    type: "file",
+    grid: {
+      size: gridSize,
+      inset: getGridDefaultInset(
+        { size: gridSize, type: "square" },
+        image.width,
+        image.height
+      ),
+      type: "square",
+      measurement: {
+        type: "chebyshev",
+        scale: "5ft",
+      },
+    },
+    width: image.width,
+    height: image.height,
+    id: uuid(),
+    created: Date.now(),
+    lastModified: Date.now(),
+    owner: userId,
+    showGrid: false,
+    snapToGrid: true,
+    quality: "original",
+  };
+
+  return { map, assets: [fileAsset] };
 }
