@@ -24,3 +24,11 @@ yarn-error.log*
 
 # typescript
 tsconfig.tsbuildinfo
+.ace-tool/
+/.claude
+AGENTS.md
+/.codanna
+/plans
+/specs
+/docs
+/backend/cache
