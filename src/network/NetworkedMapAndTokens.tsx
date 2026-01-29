@@ -131,6 +131,9 @@ function NetworkedMapAndTokens({
 
   // Keep track of assets we are already requesting to prevent from loading them multiple times
   const requestingAssetsRef = useRef(new Set());
+  const pendingAssetTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>(
+    {}
+  );
 
   useEffect(() => {
     if (!assetManifest || !userId) {
@@ -170,22 +173,66 @@ function NetworkedMapAndTokens({
           continue;
         }
 
-        if (!assetApiBase) {
-          addToast("图片服务未配置");
-          requestingAssetsRef.current.delete(asset.id);
-          continue;
-        }
-
         const targetSessionId = ownerState.sessionId || ownerSessionId;
 
         if (cachedAsset) {
           requestingAssetsRef.current.delete(asset.id);
         } else if (targetSessionId) {
           assetLoadStart(asset.id);
-          session.sendTo(targetSessionId, "assetRequest", {
-            id: asset.id,
-            gameId,
-          });
+          const sentViaP2P = await session.sendAssetTo(
+            targetSessionId,
+            "assetRequest",
+            {
+              id: asset.id,
+              gameId,
+            },
+            undefined,
+            { allowRelayFallback: false }
+          );
+          if (!sentViaP2P) {
+            if (!assetApiBase) {
+              addToast("图片服务未配置，无法回退下载");
+              requestingAssetsRef.current.delete(asset.id);
+              assetProgressUpdate({ id: asset.id, total: 1, count: 1 });
+              continue;
+            }
+            void session.sendAssetTo(
+              targetSessionId,
+              "assetP2pFailed",
+              {
+                id: asset.id,
+                gameId,
+              },
+              asset.id,
+              { allowRelayFallback: true }
+            );
+            continue;
+          }
+          const existingTimeout = pendingAssetTimeoutsRef.current[asset.id];
+          if (existingTimeout) {
+            clearTimeout(existingTimeout);
+          }
+          pendingAssetTimeoutsRef.current[asset.id] = setTimeout(() => {
+            if (!requestingAssetsRef.current.has(asset.id)) {
+              return;
+            }
+            if (!assetApiBase) {
+              addToast("图片服务未配置，无法回退下载");
+              requestingAssetsRef.current.delete(asset.id);
+              assetProgressUpdate({ id: asset.id, total: 1, count: 1 });
+              return;
+            }
+            void session.sendAssetTo(
+              targetSessionId,
+              "assetP2pFailed",
+              {
+                id: asset.id,
+                gameId,
+              },
+              asset.id,
+              { allowRelayFallback: true }
+            );
+          }, 8000);
         } else {
           // 无法立即请求，解除锁定以便后续重试
           requestingAssetsRef.current.delete(asset.id);
@@ -384,20 +431,73 @@ function NetworkedMapAndTokens({
   }
 
   useEffect(() => {
-    async function handlePeerData({ id, data, reply }: PeerDataEvent) {
+    async function handlePeerData({ peer, id, data }: PeerDataEvent) {
+      const peerId = peer?.id;
       if (id === "assetRequest") {
         const requestedGameId =
           typeof data?.gameId === "string" ? data.gameId : gameId;
         if (requestedGameId !== gameId) {
           if (typeof data?.id === "string") {
-            reply("assetResponseFail", data.id, data.id);
+            if (peerId) {
+              await session.sendAssetTo(
+                peerId,
+                "assetResponseFail",
+                data.id,
+                data.id,
+                { allowRelayFallback: true }
+              );
+            }
           }
           return;
         }
 
         const asset = await getAsset(data.id);
         if (!asset) {
-          reply("assetResponseFail", data?.id, data?.id);
+          if (peerId) {
+            await session.sendAssetTo(
+              peerId,
+              "assetResponseFail",
+              data?.id,
+              data?.id,
+              { allowRelayFallback: true }
+            );
+          }
+          return;
+        }
+
+        if (peerId) {
+          const sentViaP2P = await session.sendAssetTo(
+            peerId,
+            "assetResponseSuccess",
+            asset,
+            asset.id,
+            { allowRelayFallback: false }
+          );
+          if (sentViaP2P) {
+            return;
+          }
+        }
+        return;
+      }
+
+      if (id === "assetP2pFailed") {
+        if (!peerId) {
+          return;
+        }
+        const requestedGameId =
+          typeof data?.gameId === "string" ? data.gameId : gameId;
+        if (requestedGameId !== gameId) {
+          return;
+        }
+        const asset = await getAsset(data.id);
+        if (!asset) {
+          await session.sendAssetTo(
+            peerId,
+            "assetResponseFail",
+            data?.id,
+            data?.id,
+            { allowRelayFallback: true }
+          );
           return;
         }
 
@@ -415,12 +515,19 @@ function NetworkedMapAndTokens({
             });
           } catch (error) {
             console.error("ASSET_UPLOAD_ON_DEMAND_FAILED", error);
-            reply("assetResponseSuccess", asset, asset.id);
+            await session.sendAssetTo(
+              peerId,
+              "assetResponseSuccess",
+              asset,
+              asset.id,
+              { allowRelayFallback: true }
+            );
             return;
           }
         }
 
-        reply(
+        await session.sendAssetTo(
+          peerId,
           "assetResponseUrl",
           {
             id: asset.id,
@@ -432,7 +539,8 @@ function NetworkedMapAndTokens({
             size: asset.size,
             originalName: asset.originalName,
           },
-          asset.id
+          asset.id,
+          { allowRelayFallback: true }
         );
         return;
       }
@@ -465,6 +573,11 @@ function NetworkedMapAndTokens({
           addToast("图片下载失败，请稍后重试");
         } finally {
           requestingAssetsRef.current.delete(assetId);
+          const pendingTimeout = pendingAssetTimeoutsRef.current[assetId];
+          if (pendingTimeout) {
+            clearTimeout(pendingTimeout);
+            delete pendingAssetTimeoutsRef.current[assetId];
+          }
         }
         return;
       }
@@ -473,6 +586,11 @@ function NetworkedMapAndTokens({
         const asset = data;
         await putAsset(asset);
         requestingAssetsRef.current.delete(asset.id);
+        const pendingTimeout = pendingAssetTimeoutsRef.current[asset.id];
+        if (pendingTimeout) {
+          clearTimeout(pendingTimeout);
+          delete pendingAssetTimeoutsRef.current[asset.id];
+        }
         return;
       }
 
@@ -481,6 +599,11 @@ function NetworkedMapAndTokens({
         requestingAssetsRef.current.delete(assetId);
         assetProgressUpdate({ id: assetId, total: 1, count: 1 });
         addToast("资源传输失败，所有者未找到文件");
+        const pendingTimeout = pendingAssetTimeoutsRef.current[assetId];
+        if (pendingTimeout) {
+          clearTimeout(pendingTimeout);
+          delete pendingAssetTimeoutsRef.current[assetId];
+        }
       }
     }
 

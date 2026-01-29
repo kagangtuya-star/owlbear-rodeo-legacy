@@ -9,7 +9,6 @@ import useDebounce from "../hooks/useDebounce";
 
 import { omit } from "../helpers/shared";
 import { Asset } from "../types/Asset";
-import useAssetTransfer from "../network/useAssetTransfer";
 
 export type GetAssetEventHanlder = (
   assetId: string
@@ -31,13 +30,12 @@ const maxCacheSize = 1e8;
 
 export function AssetsProvider({
   children,
-  gameId,
+  gameId: _gameId,
 }: {
   children: React.ReactNode;
   gameId: string;
 }) {
   const { worker, database, databaseStatus } = useDatabase();
-  const { assetApiBase, uploadAsset } = useAssetTransfer(gameId);
 
   useEffect(() => {
     if (databaseStatus === "loaded") {
@@ -60,32 +58,9 @@ export function AssetsProvider({
         return;
       }
 
-      const processedAssets: Asset[] = [];
-      for (let asset of assets) {
-        let nextAsset = asset;
-        const shouldUpload =
-          assetApiBase &&
-          asset.file &&
-          asset.file.length > 0 &&
-          (!asset.remoteUrl || asset.source === "local");
-
-        if (shouldUpload) {
-          const response = await uploadAsset(asset);
-          nextAsset = {
-            ...asset,
-            remoteUrl: response.url,
-            size: response.size ?? asset.size ?? asset.file.length,
-            originalName: response.originalName ?? asset.originalName,
-            source: "uploaded",
-          };
-        }
-
-        processedAssets.push(nextAsset);
-      }
-
-      await database.table("assets").bulkAdd(processedAssets);
+      await database.table("assets").bulkAdd(assets);
     },
-    [assetApiBase, database, uploadAsset]
+    [database]
   );
 
   const putAsset = useCallback<PutAssetEventsHandler>(
@@ -152,6 +127,25 @@ export const AssetURLsUpdaterContext =
     React.Dispatch<React.SetStateAction<AssetURLs>> | undefined
   >(undefined);
 
+function normalizeAssetFile(file: any): Uint8Array | ArrayBuffer | null {
+  if (!file) {
+    return null;
+  }
+  if (file instanceof Uint8Array || file instanceof ArrayBuffer) {
+    return file;
+  }
+  if (Array.isArray(file)) {
+    return new Uint8Array(file);
+  }
+  if (file && typeof file === "object" && "buffer" in file) {
+    const buffer = (file as any).buffer;
+    if (buffer instanceof ArrayBuffer) {
+      return buffer;
+    }
+  }
+  return null;
+}
+
 /**
  * Helper to manage sharing of custom image sources between uses of useAssetURL
  */
@@ -201,12 +195,15 @@ export function AssetURLsProvider({ children }: { children: React.ReactNode }) {
       for (let asset of assets) {
         if (asset && newURLs[asset.id]?.url === null) {
           let resolvedUrl: string;
-          if (asset.remoteUrl) {
+          const fileData = normalizeAssetFile(asset.file);
+          if (fileData) {
+            resolvedUrl = URL.createObjectURL(
+              new Blob([fileData], { type: asset.mime })
+            );
+          } else if (asset.remoteUrl) {
             resolvedUrl = asset.remoteUrl;
           } else {
-            resolvedUrl = URL.createObjectURL(
-              new Blob([asset.file], { type: asset.mime })
-            );
+            continue;
           }
           newURLs[asset.id] = {
             ...newURLs[asset.id],

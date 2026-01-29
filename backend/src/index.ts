@@ -4,6 +4,7 @@ import helmet from "helmet";
 import { Server } from "socket.io";
 // @ts-ignore
 import msgParser from "socket.io-msgpack-parser";
+import dotenv from "dotenv";
 import AppServer from "./entities/AppServer";
 import Controller from "./controllers/Controller";
 import GameServer from "./entities/GameServer";
@@ -13,15 +14,19 @@ import IceServer from "./entities/IceServer";
 import IceServerController from "./controllers/IceServerController";
 import AssetStorage from "./entities/AssetStorage";
 import AssetController from "./controllers/AssetController";
+import StunServer from "./services/StunServer";
 import path from "path";
 import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+dotenv.config({ path: path.resolve(__dirname, "../../.env.local"), override: true });
 
 const app: Application = express();
 const port: string | number = Global.CONNECTION_PORT;
 const server = new AppServer(app, port);
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const resolveDuration = (value: string | undefined, fallback: number) => {
   if (!value) {
@@ -29,6 +34,17 @@ const resolveDuration = (value: string | undefined, fallback: number) => {
   }
   const parsed = Number(value);
   if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return fallback;
+};
+
+const resolvePort = (value: string | undefined, fallback: number) => {
+  if (!value) {
+    return fallback;
+  }
+  const parsed = Number(value);
+  if (Number.isInteger(parsed) && parsed > 0 && parsed <= 65535) {
     return parsed;
   }
   return fallback;
@@ -67,6 +83,7 @@ const corsConfig: CorsOptions = {
 const jsonParser = express.json({ limit: "100mb" });
 
 const iceServer = new IceServer();
+const stunServer = new StunServer();
 
 const assetStorage = new AssetStorage(
   assetBaseDir,
@@ -98,6 +115,11 @@ const game = new GameServer(io, assetStorage);
 game.initaliseSocketServer(httpServer);
 game.run();
 
+const stunEnabled = process.env.STUN_ENABLED !== "false";
+const stunPort = resolvePort(process.env.STUN_PORT, 3478);
+const stunHost = process.env.STUN_BIND_HOST || "0.0.0.0";
+stunServer.start({ enabled: stunEnabled, port: stunPort, host: stunHost });
+
 process.once("SIGTERM", () => {
   console.log("sigterm event");
   server.close(() => {
@@ -108,6 +130,7 @@ process.once("SIGTERM", () => {
     console.log("socket server closed");
     io.sockets.emit("server shutdown");
   });
+  stunServer.stop();
 
   setTimeout(() => {
     process.exit(0);

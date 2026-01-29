@@ -32,6 +32,41 @@ export default class GameServer {
       const gameState = new GameState(this.io, socket, this.gameRepo);
       let _gameId: string;
 
+      const forwardWebRtcSignal = (event: string, payload: any) => {
+        try {
+          const { to } = payload || {};
+          if (typeof to !== "string") {
+            return;
+          }
+
+          let gameId: string | undefined;
+          if (_gameId) {
+            gameId = _gameId;
+          } else {
+            gameId = gameState.getGameId();
+            if (gameId) {
+              _gameId = gameId;
+            }
+          }
+
+          if (!gameId) {
+            return;
+          }
+
+          const partyState = this.gameRepo.getPartyState(gameId);
+          if (!partyState || !(to in partyState)) {
+            return;
+          }
+
+          this.io.to(to).emit(event, {
+            from: socket.id,
+            ...payload,
+          });
+        } catch (error) {
+          console.error("WEBRTC_SIGNAL_ERROR", error);
+        }
+      };
+
       socket.on("relay_chunk", (payload: any) => {
         try {
           const { to, chunkId, index, total, data } = payload || {};
@@ -74,6 +109,27 @@ export default class GameServer {
         } catch (error) {
           console.error("RELAY_CHUNK_ERROR", error);
         }
+      });
+
+      socket.on("webrtc_offer", (payload: any) => {
+        if (!payload?.sdp) {
+          return;
+        }
+        forwardWebRtcSignal("webrtc_offer", payload);
+      });
+
+      socket.on("webrtc_answer", (payload: any) => {
+        if (!payload?.sdp) {
+          return;
+        }
+        forwardWebRtcSignal("webrtc_answer", payload);
+      });
+
+      socket.on("webrtc_ice", (payload: any) => {
+        if (!payload?.candidate) {
+          return;
+        }
+        forwardWebRtcSignal("webrtc_ice", payload);
       });
 
       socket.on("disconnecting", async () => {

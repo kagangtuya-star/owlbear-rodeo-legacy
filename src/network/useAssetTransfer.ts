@@ -13,10 +13,21 @@ export type UploadAssetResponse = {
   originalName?: string;
 };
 
+function normalizeAssetBase(brokerUrl: string | undefined) {
+  if (!brokerUrl) {
+    return null;
+  }
+  const trimmed = brokerUrl.replace(/\/$/, "");
+  const root = trimmed.replace(/\/assets$/, "");
+  return `${root}/assets`;
+}
+
+function dedupeAssetsPath(url: string) {
+  return url.replace(/\/assets\/assets\//g, "/assets/");
+}
+
 export function getAssetApiBase() {
-  return process.env.REACT_APP_BROKER_URL
-    ? `${process.env.REACT_APP_BROKER_URL.replace(/\/$/, "")}/assets`
-    : null;
+  return normalizeAssetBase(process.env.REACT_APP_BROKER_URL);
 }
 
 export default function useAssetTransfer(gameId: string) {
@@ -25,15 +36,28 @@ export default function useAssetTransfer(gameId: string) {
   const resolveRemoteUrl = useCallback(
     (response: UploadAssetResponse): string => {
       const base = assetApiBase?.replace(/\/$/, "");
+      const baseRoot = base?.replace(/\/assets$/, "");
       const raw = response.url || response.path;
       if (!raw) {
         throw new Error("asset_response_missing_url");
       }
       if (/^https?:\/\//i.test(raw)) {
-        return raw;
+        return dedupeAssetsPath(raw);
+      }
+      if (raw.startsWith("/assets/")) {
+        return baseRoot ? `${baseRoot}${raw}` : raw;
+      }
+      if (raw.startsWith("assets/")) {
+        return baseRoot ? `${baseRoot}/${raw}` : `/${raw}`;
       }
       if (raw.startsWith("/")) {
+        if (baseRoot) {
+          return `${baseRoot}${raw}`;
+        }
         return base ? `${base}${raw}` : raw;
+      }
+      if (baseRoot) {
+        return `${baseRoot}/${raw}`;
       }
       return base ? `${base}/${raw}` : raw;
     },
@@ -84,9 +108,11 @@ export default function useAssetTransfer(gameId: string) {
   const downloadAsset = useCallback(
     async (url: string) => {
       const finalUrl = /^https?:\/\//i.test(url)
-        ? url
+        ? dedupeAssetsPath(url)
         : assetApiBase
-        ? `${assetApiBase.replace(/\/$/, "")}${url.startsWith("/") ? url : `/${url}`}`
+        ? dedupeAssetsPath(
+            `${assetApiBase.replace(/\/$/, "")}${url.startsWith("/") ? url : `/${url}`}`
+          )
         : url;
 
       const response = await fetch(finalUrl, { credentials: "omit" });

@@ -6,6 +6,7 @@ import shortid from "shortid";
 import { deflate, inflate } from "pako";
 
 import { omit } from "../helpers/shared";
+import AssetTransport from "./AssetTransport";
 
 const MAX_CHUNK_SIZE = 16000;
 
@@ -73,6 +74,7 @@ class Session extends EventEmitter {
   private _gameId: string;
   private _password: string;
   private peers: Record<string, SessionPeer>;
+  private assetTransport: AssetTransport;
 
   constructor() {
     super();
@@ -80,6 +82,17 @@ class Session extends EventEmitter {
     this._gameId = "";
     this._password = "";
     this.peers = {};
+    this.assetTransport = new AssetTransport({
+      getLocalId: () => this.socket?.id,
+      sendSignal: (event, payload) => {
+        this.socket?.emit(event, payload);
+      },
+      onPeerData: event => this.emit("peerData", event),
+      onPeerDataProgress: event => this.emit("peerDataProgress", event),
+      log: (message, payload) => {
+        console.info(message, payload);
+      },
+    });
   }
 
   get id() {
@@ -114,6 +127,7 @@ class Session extends EventEmitter {
     this.socket = undefined;
     this._incomingChunks = {};
     this.peers = {};
+    this.assetTransport.dispose();
   }
 
   joinGame(gameId: string, password: string) {
@@ -160,6 +174,44 @@ class Session extends EventEmitter {
     }
   }
 
+  async sendAssetTo(
+    sessionId: string,
+    eventId: string,
+    data: PeerData,
+    chunkId?: string,
+    options?: { allowRelayFallback?: boolean; timeoutMs?: number }
+  ) {
+    if (!sessionId) {
+      return false;
+    }
+    const allowRelayFallback = options?.allowRelayFallback !== false;
+    console.info("ASSET_SEND_TRY_P2P", { sessionId, eventId, chunkId });
+    const sentViaP2P = await this.assetTransport.send(
+      sessionId,
+      eventId,
+      data,
+      chunkId,
+      { timeoutMs: options?.timeoutMs }
+    );
+    if (sentViaP2P) {
+      console.info("ASSET_SEND_MODE_P2P", { sessionId, eventId, chunkId });
+      return true;
+    }
+
+    if (allowRelayFallback) {
+      this.sendTo(sessionId, eventId, data, chunkId);
+      console.info("ASSET_SEND_MODE_RELAY", { sessionId, eventId, chunkId });
+      return false;
+    }
+
+    console.info("ASSET_SEND_P2P_FAILED_NO_RELAY", {
+      sessionId,
+      eventId,
+      chunkId,
+    });
+    return sentViaP2P;
+  }
+
   private chunk(data: Uint8Array, chunkId: string): OutgoingChunkPayload[] {
     const size = data.byteLength;
     const total = Math.ceil(size / MAX_CHUNK_SIZE) || 1;
@@ -189,6 +241,9 @@ class Session extends EventEmitter {
     this.socket.io.on("reconnect", this.handleSocketReconnect);
     this.socket.on("force_update", this.handleForceUpdate);
     this.socket.on("relay_chunk", this.handleRelayChunk);
+    this.socket.on("webrtc_offer", this.handleWebRtcOffer);
+    this.socket.on("webrtc_answer", this.handleWebRtcAnswer);
+    this.socket.on("webrtc_ice", this.handleWebRtcIce);
   }
 
   private handlePlayerJoined = (id: string) => {
@@ -200,6 +255,7 @@ class Session extends EventEmitter {
     if (id in this.peers) {
       this.peers = omit(this.peers, [id]);
     }
+    this.assetTransport.removePeer(id);
     this.emit("playerLeft", id);
     this.cleanupIncomingChunks(id);
   };
@@ -225,6 +281,7 @@ class Session extends EventEmitter {
     this.emit("status", "reconnecting");
     this._incomingChunks = {};
     this.peers = {};
+    this.assetTransport.dispose();
   };
 
   private handleSocketReconnect = () => {
@@ -294,6 +351,12 @@ class Session extends EventEmitter {
         const merged = this.mergeChunks(chunkState.buffers);
         const decompressed = inflate(merged);
         const decoded = decode(decompressed) as { id: string; data: PeerData };
+        if (decoded?.id && decoded.id.startsWith("asset")) {
+          console.info("ASSET_RECEIVE_MODE_RELAY", {
+            sessionId: from,
+            eventId: decoded.id,
+          });
+        }
         this.emit("peerData", {
           peer: { id: from },
           id: decoded.id,
@@ -306,6 +369,18 @@ class Session extends EventEmitter {
         delete this._incomingChunks[key];
       }
     }
+  };
+
+  private handleWebRtcOffer = (payload: any) => {
+    this.assetTransport.handleOffer(payload);
+  };
+
+  private handleWebRtcAnswer = (payload: any) => {
+    this.assetTransport.handleAnswer(payload);
+  };
+
+  private handleWebRtcIce = (payload: any) => {
+    this.assetTransport.handleIce(payload);
   };
 
   private mergeChunks(buffers: (Uint8Array | undefined)[]) {

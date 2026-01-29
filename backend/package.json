@@ -19,7 +19,8 @@
     "helmet": "^5.0.2",
     "lodash.get": "^4.4.2",
     "socket.io": "^4.5.4",
-    "socket.io-msgpack-parser": "^3.0.2"
+    "socket.io-msgpack-parser": "^3.0.2",
+    "stun": "^2.1.0"
   },
   "devDependencies": {
     "@types/bcrypt": "^3.0.0",
