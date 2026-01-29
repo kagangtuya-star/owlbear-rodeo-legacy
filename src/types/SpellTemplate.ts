@@ -51,4 +51,5 @@ export type SpellTemplateToolSettings = {
   lineWidth: number;
   coneAngle: number;
   ringInnerRatio: number;
+  previewOnRotate: boolean;
 };

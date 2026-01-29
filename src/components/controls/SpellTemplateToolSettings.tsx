@@ -1,6 +1,6 @@
 import { MouseEventHandler, useState } from "react";
 import type { MouseEvent } from "react";
-import { Box, Flex, Input, Label, SxProp } from "theme-ui";
+import { Box, Flex, Input, Label, SxProp, Checkbox } from "theme-ui";
 import { useMedia } from "react-media";
 
 import ToolSection from "./shared/ToolSection";
@@ -236,6 +236,18 @@ function SpellTemplateToolSettings({
             onSettingChange({ rule: option?.value || "center" })
           }
         />
+      </Box>
+      <Divider vertical />
+      <Box sx={{ minWidth: "150px" }}>
+        <Label sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Checkbox
+            checked={settings.previewOnRotate}
+            onChange={(event) =>
+              onSettingChange({ previewOnRotate: event.target.checked })
+            }
+          />
+          Real-time Preview
+        </Label>
       </Box>
       <Divider vertical />
       <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>

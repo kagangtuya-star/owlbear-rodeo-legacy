@@ -145,6 +145,7 @@ function MapContols({
     lineWidth: 1,
     coneAngle: 90,
     ringInnerRatio: 0.5,
+    previewOnRotate: true,
   };
 
   const toolsById: Record<string, MapTool> = {

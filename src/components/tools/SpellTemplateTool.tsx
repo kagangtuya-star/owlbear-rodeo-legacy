@@ -51,6 +51,7 @@ const DEFAULT_TEMPLATE_SETTINGS: SpellTemplateToolSettings = {
   lineWidth: 1,
   coneAngle: 90,
   ringInnerRatio: 0.5,
+  previewOnRotate: true,
 };
 
 export type SpellTemplateAddHandler = (template: SpellTemplate) => void;
@@ -576,6 +577,13 @@ function SpellTemplateTool({
     if (!activeTemplate || !map) {
       return [];
     }
+    if (
+      rotatingTemplateId &&
+      activeTemplate.id === rotatingTemplateId &&
+      !toolSettings.previewOnRotate
+    ) {
+      return [];
+    }
     return getAffectedCells(
       activeTemplate,
       toolSettings.rule,
@@ -595,6 +603,8 @@ function SpellTemplateTool({
     mapWidth,
     mapHeight,
     map,
+    rotatingTemplateId,
+    toolSettings.previewOnRotate,
   ]);
 
   const hitTokens = useMemo(() => {

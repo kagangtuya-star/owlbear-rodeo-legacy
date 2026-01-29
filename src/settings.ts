@@ -96,6 +96,7 @@ function loadVersions(settings: Settings) {
       lineWidth: 1,
       coneAngle: 90,
       ringInnerRatio: 0.5,
+      previewOnRotate: true,
     },
   }));
 }
