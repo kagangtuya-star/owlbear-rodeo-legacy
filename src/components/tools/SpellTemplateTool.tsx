@@ -812,7 +812,6 @@ function SpellTemplateTool({
         }}
       >
         <SpellTemplateShape template={template} />
-        {active && editable && isSelected && renderRotationHandle(template)}
       </Group>
     );
   }
@@ -828,6 +827,11 @@ function SpellTemplateTool({
           opacity={Math.min(activeTemplate.style.opacity + 0.1, 0.6)}
         />
       )}
+      {active &&
+        editable &&
+        selectedTemplateId &&
+        templatesById[selectedTemplateId] &&
+        renderRotationHandle(templatesById[selectedTemplateId])}
       {activeTemplate && (
         <SpellTemplateHud
           template={activeTemplate}
