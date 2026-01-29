@@ -107,6 +107,12 @@ function SpellTemplateTool({
   const [cursorPosition, setCursorPosition] = useState<Vector2 | null>(null);
   const ignoreNextDragRef = useRef(false);
   const drawStartRef = useRef<Vector2 | null>(null);
+  const rotationStateRef = useRef<{
+    id: string;
+    startAngle: number;
+    pivot: Vector2;
+    points?: Vector2[];
+  } | null>(null);
 
   const activeTemplate = drawingTemplate ||
     templates.find((template) => template.id === selectedTemplateId) ||
@@ -505,6 +511,39 @@ function SpellTemplateTool({
       if (!position) {
         return;
       }
+      if (template.type === "line" || template.type === "path") {
+        const rotationState = rotationStateRef.current;
+        if (!rotationState || rotationState.id !== template.id) {
+          return;
+        }
+        const currentAngle =
+          (Math.atan2(
+            position.y - rotationState.pivot.y,
+            position.x - rotationState.pivot.x
+          ) *
+            180) /
+          Math.PI;
+        const delta = currentAngle - rotationState.startAngle;
+        const points = rotationState.points || [];
+        const rotated = points.map((point) => {
+          const pixel = Vector2.multiply(point, {
+            x: mapWidth,
+            y: mapHeight,
+          });
+          const nextPixel = Vector2.rotate(pixel, rotationState.pivot, delta);
+          return {
+            x: nextPixel.x / mapWidth,
+            y: nextPixel.y / mapHeight,
+          };
+        });
+        onTemplateEdit([
+          {
+            id: template.id,
+            params: { ...template.params, points: rotated },
+          },
+        ]);
+        return;
+      }
       const originPixel = Vector2.multiply(template.origin, {
         x: mapWidth,
         y: mapHeight,
@@ -522,6 +561,7 @@ function SpellTemplateTool({
     function handleRotateEnd() {
       setRotatingTemplateId(null);
       setPreventMapInteraction(false);
+      rotationStateRef.current = null;
       ignoreNextDragRef.current = false;
     }
 
@@ -663,7 +703,12 @@ function SpellTemplateTool({
 
   const renderRotationHandle = useCallback(
     (template: SpellTemplate) => {
-      if (template.type !== "rectangle" && template.type !== "cone") {
+      if (
+        template.type !== "rectangle" &&
+        template.type !== "cone" &&
+        template.type !== "line" &&
+        template.type !== "path"
+      ) {
         return null;
       }
       const bounds = getTemplateBoundingBox(template, {
@@ -674,10 +719,47 @@ function SpellTemplateTool({
         x: bounds.center.x,
         y: bounds.min.y - ROTATION_HANDLE_DISTANCE,
       };
-      const origin = Vector2.multiply(template.origin, {
-        x: mapWidth,
-        y: mapHeight,
-      });
+      const origin =
+        template.type === "rectangle" || template.type === "cone"
+          ? Vector2.multiply(template.origin, {
+              x: mapWidth,
+              y: mapHeight,
+            })
+          : bounds.center;
+
+      function startRotate(
+        event: Konva.KonvaEventObject<MouseEvent | TouchEvent>
+      ) {
+        event.cancelBubble = true;
+        ignoreNextDragRef.current = true;
+        setPreventMapInteraction(true);
+        setRotatingTemplateId(template.id);
+        if (template.type === "line" || template.type === "path") {
+          const mapStage = mapStageRef.current;
+          const mapImage = mapStage?.findOne("#mapImage");
+          if (!mapImage) {
+            return;
+          }
+          const position = getRelativePointerPosition(mapImage);
+          if (!position) {
+            return;
+          }
+          const startAngle =
+            (Math.atan2(
+              position.y - bounds.center.y,
+              position.x - bounds.center.x
+            ) *
+              180) /
+            Math.PI;
+          rotationStateRef.current = {
+            id: template.id,
+            startAngle,
+            pivot: bounds.center,
+            points: template.params.points || [],
+          };
+        }
+      }
+
       return (
         <Group>
           <Line
@@ -692,23 +774,13 @@ function SpellTemplateTool({
             fill="white"
             stroke="black"
             strokeWidth={1}
-            onMouseDown={(event) => {
-              event.cancelBubble = true;
-              ignoreNextDragRef.current = true;
-              setPreventMapInteraction(true);
-              setRotatingTemplateId(template.id);
-            }}
-            onTouchStart={(event) => {
-              event.cancelBubble = true;
-              ignoreNextDragRef.current = true;
-              setPreventMapInteraction(true);
-              setRotatingTemplateId(template.id);
-            }}
+            onMouseDown={startRotate}
+            onTouchStart={startRotate}
           />
         </Group>
       );
     },
-    [mapWidth, mapHeight, setPreventMapInteraction]
+    [mapWidth, mapHeight, mapStageRef, setPreventMapInteraction]
   );
 
   function renderTemplate(template: SpellTemplate) {
