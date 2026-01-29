@@ -28,6 +28,7 @@ import {
 import Vector2 from "../helpers/Vector2";
 
 import useResponsiveLayout from "../hooks/useResponsiveLayout";
+import useSetting from "../hooks/useSetting";
 
 import { useTokenData } from "../contexts/TokenDataContext";
 import { useUserId } from "../contexts/UserIdContext";
@@ -69,6 +70,9 @@ function SelectTokensModal({
     tokensById,
   } = useTokenData();
   const { addAssets } = useAssets();
+  const [imageCompressionQuality] = useSetting<number>(
+    "asset.compressionQuality"
+  );
 
   // Get token names for group filtering
   const [tokenNames, setTokenNames] = useState(getItemNames(tokens));
@@ -154,7 +158,12 @@ function SelectTokensModal({
     }
     setIsLoading(true);
     try {
-      const { token, assets } = await createTokenFromFile(file, userId);
+      const compressionQuality = imageCompressionQuality ?? 0.8;
+      const { token, assets } = await createTokenFromFile(
+        file,
+        userId,
+        compressionQuality
+      );
       await addToken(token);
       await addAssets(assets);
     } catch (error) {

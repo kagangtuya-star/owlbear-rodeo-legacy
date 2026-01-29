@@ -86,6 +86,27 @@ export async function canvasToImage(
 }
 
 /**
+ * Encode a full-size image as webp without resizing.
+ * @param {HTMLImageElement} image
+ * @param {number} quality
+ * @returns {Promise<CanvasImage | undefined>}
+ */
+export async function imageToWebp(
+  image: HTMLImageElement,
+  quality: number
+): Promise<CanvasImage | undefined> {
+  let canvas = document.createElement("canvas");
+  canvas.width = image.width;
+  canvas.height = image.height;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return undefined;
+  }
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  return await canvasToImage(canvas, "image/webp", quality);
+}
+
+/**
  * @param {HTMLImageElement} image the image to resize
  * @param {number} size the size of the longest edge of the new image
  * @param {string} type the mime type of the image

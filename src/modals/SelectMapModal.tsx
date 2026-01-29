@@ -24,6 +24,7 @@ import { findGroup, getItemNames } from "../helpers/group";
 import { createMapFromFile } from "../helpers/map";
 
 import useResponsiveLayout from "../hooks/useResponsiveLayout";
+import useSetting from "../hooks/useSetting";
 
 import { useMapData } from "../contexts/MapDataContext";
 import { useUserId } from "../contexts/UserIdContext";
@@ -74,6 +75,9 @@ function SelectMapModal({
     mapsById,
   } = useMapData();
   const { addAssets } = useAssets();
+  const [imageCompressionQuality] = useSetting<number>(
+    "asset.compressionQuality"
+  );
 
   // Get map names for group filtering
   const [mapNames, setMapNames] = useState(getItemNames(maps));
@@ -158,7 +162,12 @@ function SelectMapModal({
     }
     setIsLoading(true);
     try {
-      const { map, assets } = await createMapFromFile(file, userId);
+      const compressionQuality = imageCompressionQuality ?? 0.8;
+      const { map, assets } = await createMapFromFile(
+        file,
+        userId,
+        compressionQuality
+      );
       await addMap(map);
       await addAssets(assets);
     } catch (error) {

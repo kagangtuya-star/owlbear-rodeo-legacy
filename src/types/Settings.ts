@@ -24,6 +24,9 @@ export type MapSettings = {
 export type PointerSettings = PointerToolSettings;
 export type TimerSettings = Duration;
 export type SelectSettings = SelectToolSettings;
+export type AssetSettings = {
+  compressionQuality: number;
+};
 
 export type Settings = {
   dice: DiceSettings;
@@ -34,4 +37,5 @@ export type Settings = {
   pointer: PointerSettings;
   timer: TimerSettings;
   select: SelectSettings;
+  asset: AssetSettings;
 };

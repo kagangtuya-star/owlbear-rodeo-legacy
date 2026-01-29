@@ -2,7 +2,7 @@ import { v4 as uuid } from "uuid";
 import Case from "case";
 
 import blobToBuffer from "./blobToBuffer";
-import { resizeImage, createThumbnail } from "./image";
+import { resizeImage, createThumbnail, imageToWebp } from "./image";
 import { getFileNameFromUrl, guessImageMimeFromUrl } from "./url";
 import {
   getGridDefaultInset,
@@ -20,6 +20,8 @@ type Resolution = {
   id: "low" | "medium" | "high" | "ultra";
 };
 
+const webpMime = "image/webp";
+
 const mapResolutions: Resolution[] = [
   {
     size: 30, // Pixels per grid
@@ -30,6 +32,18 @@ const mapResolutions: Resolution[] = [
   { size: 140, quality: 0.7, id: "high" },
   { size: 300, quality: 0.8, id: "ultra" },
 ];
+
+function clampQuality(value: number) {
+  if (Number.isNaN(value)) {
+    return 0.8;
+  }
+  return Math.min(1, Math.max(0.1, value));
+}
+
+function scaleResolutionQuality(baseQuality: number, resolutionQuality: number) {
+  const scale = baseQuality / 0.8;
+  return clampQuality(resolutionQuality * scale);
+}
 
 /**
  * Get the asset id of the preview file to send for a map
@@ -61,7 +75,8 @@ export function getMapPreviewAsset(map: Map): string | undefined {
 
 export async function createMapFromFile(
   file: File,
-  userId: string
+  userId: string,
+  compressionQuality = 0.8
 ): Promise<{ map: Map; assets: Asset[] }> {
   let image = new Image();
 
@@ -73,6 +88,7 @@ export async function createMapFromFile(
 
   return new Promise((resolve, reject) => {
     image.onload = async function () {
+      const normalizedQuality = clampQuality(compressionQuality);
       // Find name and grid size
       let gridSize;
       let name = "Unknown Map";
@@ -123,21 +139,33 @@ export async function createMapFromFile(
           image.width >= resolutionPixelSize.x &&
           image.height >= resolutionPixelSize.y
         ) {
+          const targetQuality = scaleResolutionQuality(
+            normalizedQuality,
+            resolution.quality
+          );
           const resized = await resizeImage(
             image,
             Vector2.componentMax(resolutionPixelSize),
-            file.type,
-            resolution.quality
+            webpMime,
+            targetQuality
           );
-          if (resized) {
+          const resolvedImage =
+            resized ??
+            (await resizeImage(
+              image,
+              Vector2.componentMax(resolutionPixelSize),
+              file.type,
+              resolution.quality
+            ));
+          if (resolvedImage) {
             const assetId = uuid();
             resolutions[resolution.id] = assetId;
             const asset = {
-              ...resized,
+              ...resolvedImage,
               id: assetId,
               owner: userId,
               source: "local" as const,
-              size: resized.file.length,
+              size: resolvedImage.file.length,
               originalName: file.name,
             };
             assets.push(asset);
@@ -145,7 +173,13 @@ export async function createMapFromFile(
         }
       }
       // Create thumbnail
-      const thumbnailImage = await createThumbnail(image, file.type);
+      const thumbnailImage =
+        (await createThumbnail(
+          image,
+          webpMime,
+          300,
+          normalizedQuality
+        )) ?? (await createThumbnail(image, file.type));
       const thumbnailId = uuid();
       if (thumbnailImage) {
         const thumbnail = {
@@ -159,14 +193,15 @@ export async function createMapFromFile(
         assets.push(thumbnail);
       }
 
+      const compressedImage = await imageToWebp(image, normalizedQuality);
       const fileAsset = {
         id: uuid(),
-        file: buffer,
-        width: image.width,
-        height: image.height,
-        mime: file.type,
+        file: compressedImage?.file ?? buffer,
+        width: compressedImage?.width ?? image.width,
+        height: compressedImage?.height ?? image.height,
+        mime: compressedImage?.mime ?? file.type,
         owner: userId,
-        size: buffer.byteLength,
+        size: compressedImage?.file.length ?? buffer.byteLength,
         originalName: file.name,
         source: "local" as const,
       };

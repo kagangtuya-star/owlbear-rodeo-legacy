@@ -41,6 +41,8 @@ function SettingsModal({ isOpen, onRequestClose }: SettingsModalProps) {
     useSetting<boolean>("fog.showGuides");
   const [fogEditOpacity, setFogEditOpacity] =
     useSetting<number>("fog.editOpacity");
+  const [imageCompressionQuality, setImageCompressionQuality] =
+    useSetting<number>("asset.compressionQuality");
   const [storageEstimate, setStorageEstimate] = useState<StorageEstimate>();
   const [isImportExportModalOpen, setIsImportExportModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -188,6 +190,21 @@ function SettingsModal({ isOpen, onRequestClose }: SettingsModalProps) {
                 setGridSnappingSensitivity(parseFloat(e.target.value))
               }
               labelFunc={(value: number) => `${value * 2}`}
+            />
+          </Label>
+          <Label py={2}>
+            Image Compression
+            <Slider
+              step={0.05}
+              min={0.1}
+              max={1}
+              ml={1}
+              sx={{ width: "initial" }}
+              value={imageCompressionQuality ?? 0.8}
+              onChange={(e) =>
+                setImageCompressionQuality(parseFloat(e.target.value))
+              }
+              labelFunc={(value: number) => `${Math.round(value * 100)}%`}
             />
           </Label>
           <Divider bg="text" />

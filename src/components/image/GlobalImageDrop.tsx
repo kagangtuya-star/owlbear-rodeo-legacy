@@ -23,6 +23,7 @@ import { useMapStage } from "../../contexts/MapStageContext";
 import { ImageImportProvider } from "../../contexts/ImageImportContext";
 
 import useImageDrop, { ImageDropEvent } from "../../hooks/useImageDrop";
+import useSetting from "../../hooks/useSetting";
 
 import { Map } from "../../types/Map";
 import { MapState } from "../../types/MapState";
@@ -45,6 +46,9 @@ function GlobalImageDrop({
   const { addMap, getMapState } = useMapData();
   const { addToken } = useTokenData();
   const { addAssets } = useAssets();
+  const [imageCompressionQuality] = useSetting<number>(
+    "asset.compressionQuality"
+  );
 
   const mapStageRef = useMapStage();
 
@@ -310,8 +314,13 @@ function GlobalImageDrop({
       setIsLoading(true);
       try {
         let maps = [];
+        const compressionQuality = imageCompressionQuality ?? 0.8;
         for (let file of droppedImagesRef.current) {
-          const { map, assets } = await createMapFromFile(file, userId);
+          const { map, assets } = await createMapFromFile(
+            file,
+            userId,
+            compressionQuality
+          );
           await addMap(map);
           await addAssets(assets);
           maps.push(map);
@@ -338,8 +347,13 @@ function GlobalImageDrop({
       setIsLoading(true);
       try {
         let tokens = [];
+        const compressionQuality = imageCompressionQuality ?? 0.8;
         for (let file of droppedImagesRef.current) {
-          const { token, assets } = await createTokenFromFile(file, userId);
+          const { token, assets } = await createTokenFromFile(
+            file,
+            userId,
+            compressionQuality
+          );
           await addToken(token);
           await addAssets(assets);
           tokens.push(token);

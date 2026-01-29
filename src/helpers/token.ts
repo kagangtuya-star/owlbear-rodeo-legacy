@@ -3,7 +3,7 @@ import Case from "case";
 import Konva from "konva";
 
 import blobToBuffer from "./blobToBuffer";
-import { createThumbnail, getImageOutline } from "./image";
+import { createThumbnail, getImageOutline, imageToWebp } from "./image";
 import { getFileNameFromUrl, guessImageMimeFromUrl } from "./url";
 import Vector2 from "./Vector2";
 
@@ -11,6 +11,15 @@ import { Token, FileToken, TokenCategory } from "../types/Token";
 import { TokenState, BaseTokenState } from "../types/TokenState";
 import { Asset } from "../types/Asset";
 import { Outline } from "../types/Outline";
+
+const webpMime = "image/webp";
+
+function clampQuality(value: number) {
+  if (Number.isNaN(value)) {
+    return 0.8;
+  }
+  return Math.min(1, Math.max(0.1, value));
+}
 
 export function createTokenState(
   token: Token,
@@ -53,7 +62,8 @@ export function createTokenState(
 
 export async function createTokenFromFile(
   file: File,
-  userId: string
+  userId: string,
+  compressionQuality = 0.8
 ): Promise<{ token: Token; assets: Asset[] }> {
   if (!file) {
     return Promise.reject();
@@ -111,8 +121,15 @@ export async function createTokenFromFile(
 
   return new Promise((resolve, reject) => {
     image.onload = async function () {
+      const normalizedQuality = clampQuality(compressionQuality);
       let assets: Asset[] = [];
-      const thumbnailImage = await createThumbnail(image, file.type);
+      const thumbnailImage =
+        (await createThumbnail(
+          image,
+          webpMime,
+          300,
+          normalizedQuality
+        )) ?? (await createThumbnail(image, file.type));
       const thumbnailId = uuid();
       if (thumbnailImage) {
         const thumbnail = {
@@ -126,14 +143,15 @@ export async function createTokenFromFile(
         assets.push(thumbnail);
       }
 
+      const compressedImage = await imageToWebp(image, normalizedQuality);
       const fileAsset = {
         id: uuid(),
-        file: buffer,
-        width: image.width,
-        height: image.height,
-        mime: file.type,
+        file: compressedImage?.file ?? buffer,
+        width: compressedImage?.width ?? image.width,
+        height: compressedImage?.height ?? image.height,
+        mime: compressedImage?.mime ?? file.type,
         owner: userId,
-        size: buffer.byteLength,
+        size: compressedImage?.file.length ?? buffer.byteLength,
         originalName: file.name,
         source: "local" as const,
       };

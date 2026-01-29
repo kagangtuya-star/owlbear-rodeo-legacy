@@ -77,6 +77,13 @@ function loadVersions(settings: Settings) {
       useShapeFill: true,
     },
   }));
+  // v1.11.0 - Add image compression quality
+  settings.version(10, (prev: any) => ({
+    ...prev,
+    asset: {
+      compressionQuality: prev?.asset?.compressionQuality ?? 0.8,
+    },
+  }));
 }
 
 export function getSettings() {
