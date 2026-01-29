@@ -342,6 +342,8 @@ function MapContols({
           transform: "translateX(-50%)",
           backgroundColor: "overlay",
           borderRadius: "4px",
+          maxWidth: "calc(100% - 16px)",
+          overflowX: "auto",
         }}
         p={1}
       >

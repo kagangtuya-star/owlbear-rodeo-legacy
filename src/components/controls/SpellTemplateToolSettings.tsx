@@ -207,7 +207,14 @@ function SpellTemplateToolSettings({
   const selectedRule = ruleOptions.find((rule) => rule.value === settings.rule);
 
   return (
-    <Flex sx={{ alignItems: "center" }}>
+    <Flex
+      sx={{
+        alignItems: "center",
+        minWidth: "840px",
+        flexWrap: isSmallScreen ? "wrap" : "nowrap",
+        rowGap: 2,
+      }}
+    >
       <SpellTemplateColorControl
         color={settings.color}
         onColorChange={(color) => onSettingChange({ color })}
