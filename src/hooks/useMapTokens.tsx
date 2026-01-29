@@ -9,6 +9,7 @@ import {
   TokenMenuOptions,
 } from "../types/Token";
 import { TokenState } from "../types/TokenState";
+import { TokenNoteSettings } from "../types/Settings";
 import {
   TokenStateRemoveHandler,
   TokenStateChangeEventHandler,
@@ -30,7 +31,12 @@ function useMapTokens(
   onTokenStateChange: TokenStateChangeEventHandler,
   onTokenStateRemove: TokenStateRemoveHandler,
   onTokensStateCreate: TokensStateCreateHandler,
-  selectedToolId: MapToolId
+  selectedToolId: MapToolId,
+  tokenNoteSettings: TokenNoteSettings,
+  onTokenNoteOpen?: (
+    tokenStateId: string,
+    options?: { mode?: "sheet" | "popover"; anchor?: Konva.Node | null }
+  ) => void
 ) {
   const userId = useUserId();
   const disabledTokens: Record<string, boolean> = {};
@@ -165,6 +171,10 @@ function useMapTokens(
           }
           map={map}
           mapState={mapState}
+          noteModeEnabled={tokenNoteSettings.enabled}
+          noteTrigger={tokenNoteSettings.trigger}
+          noteLongPressMs={tokenNoteSettings.longPressMs}
+          onTokenNoteOpen={onTokenNoteOpen}
           selected={
             !!tokenMenuOptions &&
             isTokenMenuOpen &&

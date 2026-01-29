@@ -35,6 +35,7 @@ import { DrawingState } from "../types/Drawing";
 import { FogState } from "../types/Fog";
 import { SpellTemplateState } from "../types/SpellTemplate";
 import { Note } from "../types/Note";
+import { TokenNote } from "../types/TokenNote";
 import {
   AddStatesAction,
   EditStatesAction,
@@ -351,6 +352,48 @@ function NetworkedMapAndTokens({
     addActions([{ type: "notes", action }]);
   }
 
+  function handleTokenNoteCreate(notes: TokenNote[]) {
+    setCurrentMapState((prevState) => {
+      if (!prevState) {
+        return prevState;
+      }
+      const nextTokenNotes = { ...(prevState.tokenNotes || {}) };
+      for (const note of notes) {
+        nextTokenNotes[note.id] = note;
+      }
+      return { ...prevState, tokenNotes: nextTokenNotes };
+    }, true);
+  }
+
+  function handleTokenNoteChange(changes: Record<string, Partial<TokenNote>>) {
+    setCurrentMapState((prevState) => {
+      if (!prevState) {
+        return prevState;
+      }
+      const nextTokenNotes = { ...(prevState.tokenNotes || {}) };
+      for (const id of Object.keys(changes)) {
+        const existing = nextTokenNotes[id];
+        if (existing) {
+          nextTokenNotes[id] = { ...existing, ...changes[id], id };
+        }
+      }
+      return { ...prevState, tokenNotes: nextTokenNotes };
+    }, true);
+  }
+
+  function handleTokenNoteRemove(noteIds: string[]) {
+    setCurrentMapState((prevState) => {
+      if (!prevState) {
+        return prevState;
+      }
+      const nextTokenNotes = { ...(prevState.tokenNotes || {}) };
+      for (const id of noteIds) {
+        delete nextTokenNotes[id];
+      }
+      return { ...prevState, tokenNotes: nextTokenNotes };
+    }, true);
+  }
+
   /**
    * Token state
    */
@@ -665,6 +708,9 @@ function NetworkedMapAndTokens({
         onMapNoteCreate={handleNoteCreate}
         onMapNoteChange={handleNoteChange}
         onMapNoteRemove={handleNoteRemove}
+        onMapTokenNoteCreate={handleTokenNoteCreate}
+        onMapTokenNoteChange={handleTokenNoteChange}
+        onMapTokenNoteRemove={handleTokenNoteRemove}
         allowMapChange={canChangeMap}
         session={session}
         onUndo={handleUndo}

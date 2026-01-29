@@ -83,6 +83,16 @@ function MapContols({
 
   const userId = useUserId();
   const imageImport = useImageImport();
+  const tokenNoteSettings = toolSettings.tokenNote || {
+    enabled: false,
+    trigger: "longPress",
+    longPressMs: 500,
+    blur: "high",
+    fontSize: "md",
+    defaultFont: "default",
+    defaultPermission: "write",
+  };
+  const tokenNoteEnabled = tokenNoteSettings.enabled;
 
   const disabledControls = useMemo(() => {
     const isOwner = map && map.owner === userId;
@@ -248,6 +258,29 @@ function MapContols({
           {toolsById[tool].icon}
         </RadioIconButton>
       )),
+    },
+    {
+      id: "tokenNotes",
+      component: (
+        <IconButton
+          aria-label="Token Note Mode"
+          title="Token Note Mode"
+          onClick={() =>
+            onToolSettingChange({
+              tokenNote: {
+                ...tokenNoteSettings,
+                enabled: !tokenNoteEnabled,
+              },
+            })
+          }
+          disabled={!map}
+          sx={{
+            backgroundColor: tokenNoteEnabled ? "highlight" : "transparent",
+          }}
+        >
+          <NoteToolIcon />
+        </IconButton>
+      ),
     },
     {
       id: "history",

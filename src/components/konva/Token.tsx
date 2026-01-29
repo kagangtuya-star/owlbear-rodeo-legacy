@@ -27,6 +27,7 @@ import Vector2 from "../../helpers/Vector2";
 import { tokenSources } from "../../tokens";
 import { TokenState } from "../../types/TokenState";
 import { Map } from "../../types/Map";
+import { TokenNoteSettings } from "../../types/Settings";
 import {
   TokenDragEventHandler,
   TokenMenuCloseChangeEventHandler,
@@ -54,6 +55,13 @@ type MapTokenProps = {
   map: Map;
   mapState: MapState;
   selected: boolean;
+  noteModeEnabled: boolean;
+  noteTrigger: TokenNoteSettings["trigger"];
+  noteLongPressMs: number;
+  onTokenNoteOpen?: (
+    tokenStateId: string,
+    options?: { mode?: "sheet" | "popover"; anchor?: Konva.Node | null }
+  ) => void;
 };
 
 function Token({
@@ -72,6 +80,10 @@ function Token({
   map,
   mapState,
   selected,
+  noteModeEnabled,
+  noteTrigger,
+  noteLongPressMs,
+  onTokenNoteOpen,
 }: MapTokenProps) {
   const userId = useUserId();
 
@@ -103,6 +115,7 @@ function Token({
   );
 
   function handleDragStart(event: Konva.KonvaEventObject<DragEvent>) {
+    clearNoteLongPress();
     const tokenGroup = event.target as Konva.Shape;
     previousDragPositionRef.current = tokenGroup.position();
 
@@ -202,14 +215,48 @@ function Token({
     if (!leftMouseButton(event)) {
       return;
     }
+    if (noteLongPressTriggeredRef.current) {
+      noteLongPressTriggeredRef.current = false;
+      return;
+    }
+    if (suppressNoteClickRef.current) {
+      suppressNoteClickRef.current = false;
+      return;
+    }
+    if (noteModeEnabled && onTokenNoteOpen) {
+      onTokenNoteOpen(tokenState.id, {
+        mode: "popover",
+        anchor: event.target,
+      });
+      return;
+    }
     if (selectable && draggable && transformRootRef.current) {
       onTokenMenuOpen(tokenState.id, transformRootRef.current, true);
+    }
+  }
+
+  function handleDoubleClick(event: Konva.KonvaEventObject<MouseEvent>) {
+    if (!leftMouseButton(event)) {
+      return;
+    }
+    if (noteModeEnabled && noteTrigger === "doubleClick" && onTokenNoteOpen) {
+      onTokenNoteOpen(tokenState.id, { mode: "sheet" });
     }
   }
 
   const [tokenOpacity, setTokenOpacity] = useState(1);
   // Store token pointer down time to check for a click when token is locked
   const tokenPointerDownTimeRef = useRef<number>(0);
+  const noteLongPressTimerRef = useRef<number | null>(null);
+  const noteLongPressTriggeredRef = useRef(false);
+  const suppressNoteClickRef = useRef(false);
+
+  function clearNoteLongPress() {
+    if (noteLongPressTimerRef.current) {
+      window.clearTimeout(noteLongPressTimerRef.current);
+      noteLongPressTimerRef.current = null;
+    }
+  }
   function handlePointerDown(event: Konva.KonvaEventObject<PointerEvent>) {
     if (!leftMouseButton(event)) {
       return;
@@ -220,6 +267,18 @@ function Token({
     if (tokenState.locked && selectable) {
       tokenPointerDownTimeRef.current = event.evt.timeStamp;
     }
+    if (noteModeEnabled && noteTrigger === "longPress" && onTokenNoteOpen) {
+      noteLongPressTriggeredRef.current = false;
+      clearNoteLongPress();
+      noteLongPressTimerRef.current = window.setTimeout(() => {
+        noteLongPressTriggeredRef.current = true;
+        suppressNoteClickRef.current = true;
+        onTokenNoteOpen(tokenState.id, { mode: "sheet" });
+        window.setTimeout(() => {
+          suppressNoteClickRef.current = false;
+        }, 300);
+      }, noteLongPressMs);
+    }
   }
 
   function handlePointerUp(event: Konva.KonvaEventObject<PointerEvent>) {
@@ -228,6 +287,13 @@ function Token({
     }
     if (draggable) {
       setPreventMapInteraction(false);
+    }
+    if (noteModeEnabled && noteTrigger === "longPress") {
+      clearNoteLongPress();
+      if (noteLongPressTriggeredRef.current) {
+        noteLongPressTriggeredRef.current = false;
+        return;
+      }
     }
     // Check token click when locked and selectable
     // We can't use onClick because that doesn't check pointer distance
@@ -247,6 +313,7 @@ function Token({
   }
 
   function handlePointerLeave() {
+    clearNoteLongPress();
     if (tokenOpacity !== 1.0) {
       setTokenOpacity(1.0);
     }
@@ -434,6 +501,7 @@ function Token({
         onTouchEnd={handlePointerUp}
         onClick={handleClick}
         onTap={handleClick}
+        onDblClick={handleDoubleClick}
         onDragEnd={handleDragEnd}
         onDragStart={handleDragStart}
         onDragMove={handleDragMove}

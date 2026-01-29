@@ -39,6 +39,9 @@ import {
   NoteRemoveEventHander,
   TokenStateChangeEventHandler,
   NoteCreateEventHander,
+  TokenNoteChangeEventHandler,
+  TokenNoteCreateEventHandler,
+  TokenNoteRemoveEventHandler,
   SelectionItemsChangeEventHandler,
   SelectionItemsRemoveEventHandler,
   SelectionItemsCreateEventHandler,
@@ -49,6 +52,7 @@ import useMapTokens from "../../hooks/useMapTokens";
 import useMapNotes from "../../hooks/useMapNotes";
 import { MapActions } from "../../hooks/useMapActions";
 import useMapSelection from "../../hooks/useMapSelection";
+import useTokenNotes from "../../hooks/useTokenNotes";
 
 type MapProps = {
   map: MapType | null;
@@ -68,6 +72,9 @@ type MapProps = {
   onMapNoteCreate: NoteCreateEventHander;
   onMapNoteChange: NoteChangeEventHandler;
   onMapNoteRemove: NoteRemoveEventHander;
+  onMapTokenNoteCreate: TokenNoteCreateEventHandler;
+  onMapTokenNoteChange: TokenNoteChangeEventHandler;
+  onMapTokenNoteRemove: TokenNoteRemoveEventHandler;
   allowMapChange: boolean;
   session: Session;
   onUndo: () => void;
@@ -92,6 +99,9 @@ function Map({
   onMapNoteCreate,
   onMapNoteChange,
   onMapNoteRemove,
+  onMapTokenNoteCreate,
+  onMapTokenNoteChange,
+  onMapTokenNoteRemove,
   allowMapChange,
   session,
   onUndo,
@@ -158,13 +168,24 @@ function Map({
     onMapTemplateDraw(new RemoveStatesAction(templateIds));
   }
 
+  const { tokenNoteSheet, tokenNotePopover, openTokenNote } = useTokenNotes(
+    map,
+    mapState,
+    onMapTokenNoteCreate,
+    onMapTokenNoteChange,
+    onMapTokenNoteRemove,
+    settings.tokenNote
+  );
+
   const { tokens, propTokens, tokenMenu, tokenDragOverlay } = useMapTokens(
     map,
     mapState,
     onMapTokenStateChange,
     onMapTokenStateRemove,
     onMapTokensStateCreate,
-    selectedToolId
+    selectedToolId,
+    settings.tokenNote,
+    openTokenNote
   );
 
   const { notes, noteMenu, noteDragOverlay } = useMapNotes(
@@ -212,6 +233,8 @@ function Map({
             {tokenMenu}
             {noteMenu}
             {selectionMenu}
+            {tokenNotePopover}
+            {tokenNoteSheet}
             {tokenDragOverlay}
             {noteDragOverlay}
             {selectionDragOverlay}

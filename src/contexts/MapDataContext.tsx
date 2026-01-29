@@ -60,6 +60,7 @@ const defaultMapState: Omit<MapState, "mapId"> = {
   templates: {},
   editFlags: ["drawing", "tokens", "notes"],
   notes: {},
+  tokenNotes: {},
 };
 
 export function MapDataProvider({ children }: { children: React.ReactNode }) {

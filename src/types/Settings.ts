@@ -28,6 +28,15 @@ export type SelectSettings = SelectToolSettings;
 export type AssetSettings = {
   compressionQuality: number;
 };
+export type TokenNoteSettings = {
+  enabled: boolean;
+  trigger: "click" | "doubleClick" | "longPress";
+  longPressMs: number;
+  blur: "none" | "low" | "high";
+  fontSize: "sm" | "md" | "lg";
+  defaultFont: "default" | "handwritten" | "rune";
+  defaultPermission: "none" | "read" | "write";
+};
 
 export type Settings = {
   dice: DiceSettings;
@@ -40,4 +49,5 @@ export type Settings = {
   timer: TimerSettings;
   select: SelectSettings;
   asset: AssetSettings;
+  tokenNote: TokenNoteSettings;
 };

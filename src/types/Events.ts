@@ -3,6 +3,7 @@ import { DefaultDice, DiceRoll } from "./Dice";
 import { Map } from "./Map";
 import { MapState } from "./MapState";
 import { Note } from "./Note";
+import { TokenNote } from "./TokenNote";
 import { Timer } from "./Timer";
 import { Token } from "./Token";
 import { TokenState } from "./TokenState";
@@ -53,6 +54,12 @@ export type NoteMenuCloseEventHandler = () => void;
 export type NoteDragEventHandler = (
   event: Konva.KonvaEventObject<DragEvent>,
   noteId: string
+) => void;
+
+export type TokenNoteCreateEventHandler = (notes: TokenNote[]) => void;
+export type TokenNoteRemoveEventHandler = (noteIds: string[]) => void;
+export type TokenNoteChangeEventHandler = (
+  changes: Record<string, Partial<TokenNote>>
 ) => void;
 
 export type DiceShareChangeEventHandler = (share: boolean) => void;

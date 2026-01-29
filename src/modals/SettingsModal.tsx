@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import {
   Label,
   Flex,
+  Box,
   Button,
   useColorMode,
   Checkbox,
@@ -11,6 +12,7 @@ import {
 import prettyBytes from "pretty-bytes";
 
 import Modal from "../components/Modal";
+import Select from "../components/Select";
 import Slider from "../components/Slider";
 import LoadingOverlay from "../components/LoadingOverlay";
 
@@ -43,6 +45,24 @@ function SettingsModal({ isOpen, onRequestClose }: SettingsModalProps) {
     useSetting<number>("fog.editOpacity");
   const [imageCompressionQuality, setImageCompressionQuality] =
     useSetting<number>("asset.compressionQuality");
+  const [tokenNoteEnabled, setTokenNoteEnabled] =
+    useSetting<boolean>("tokenNote.enabled");
+  const [tokenNoteTrigger, setTokenNoteTrigger] = useSetting<
+    "click" | "doubleClick" | "longPress"
+  >("tokenNote.trigger");
+  const [tokenNoteLongPressMs, setTokenNoteLongPressMs] =
+    useSetting<number>("tokenNote.longPressMs");
+  const [tokenNoteBlur, setTokenNoteBlur] = useSetting<
+    "none" | "low" | "high"
+  >("tokenNote.blur");
+  const [tokenNoteFontSize, setTokenNoteFontSize] = useSetting<
+    "sm" | "md" | "lg"
+  >("tokenNote.fontSize");
+  const [tokenNoteDefaultFont, setTokenNoteDefaultFont] = useSetting<
+    "default" | "handwritten" | "rune"
+  >("tokenNote.defaultFont");
+  const [tokenNoteDefaultPermission, setTokenNoteDefaultPermission] =
+    useSetting<"none" | "read" | "write">("tokenNote.defaultPermission");
   const [storageEstimate, setStorageEstimate] = useState<StorageEstimate>();
   const [isImportExportModalOpen, setIsImportExportModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -127,6 +147,31 @@ function SettingsModal({ isOpen, onRequestClose }: SettingsModalProps) {
   }
 
   const [colorMode, setColorMode] = useColorMode();
+  const tokenNoteTriggerOptions = [
+    { value: "click", label: "On Click" },
+    { value: "doubleClick", label: "On Double Click" },
+    { value: "longPress", label: "On Long Press" },
+  ];
+  const tokenNoteBlurOptions = [
+    { value: "none", label: "None" },
+    { value: "low", label: "Low" },
+    { value: "high", label: "High" },
+  ];
+  const tokenNoteFontSizeOptions = [
+    { value: "sm", label: "Small" },
+    { value: "md", label: "Medium" },
+    { value: "lg", label: "Large" },
+  ];
+  const tokenNoteFontOptions = [
+    { value: "default", label: "System" },
+    { value: "handwritten", label: "Handwritten" },
+    { value: "rune", label: "Runic" },
+  ];
+  const tokenNotePermissionOptions = [
+    { value: "write", label: "Write" },
+    { value: "read", label: "Read Only" },
+    { value: "none", label: "Hidden" },
+  ];
 
   return (
     <>
@@ -206,6 +251,102 @@ function SettingsModal({ isOpen, onRequestClose }: SettingsModalProps) {
               }
               labelFunc={(value: number) => `${Math.round(value * 100)}%`}
             />
+          </Label>
+          <Divider bg="text" />
+          <Label py={2}>Token Notes:</Label>
+          <Label py={2}>
+            <span style={{ marginRight: "4px" }}>Enable Token Notes</span>
+            <Checkbox
+              checked={tokenNoteEnabled}
+              onChange={(e) => setTokenNoteEnabled(e.target.checked)}
+            />
+          </Label>
+          <Label py={2}>
+            Trigger
+            <Box sx={{ width: "240px" }}>
+              <Select
+                options={tokenNoteTriggerOptions}
+                value={tokenNoteTriggerOptions.find(
+                  (option) => option.value === tokenNoteTrigger
+                )}
+                onChange={(option: any) =>
+                  setTokenNoteTrigger(option?.value || "longPress")
+                }
+              />
+            </Box>
+          </Label>
+          {tokenNoteTrigger === "longPress" && (
+            <Label py={2}>
+              Long Press Duration
+              <Slider
+                step={50}
+                min={200}
+                max={1000}
+                ml={1}
+                sx={{ width: "initial" }}
+                value={tokenNoteLongPressMs}
+                onChange={(e) =>
+                  setTokenNoteLongPressMs(parseInt(e.target.value, 10))
+                }
+                labelFunc={(value: number) => `${value}ms`}
+              />
+            </Label>
+          )}
+          <Label py={2}>
+            Blur
+            <Box sx={{ width: "240px" }}>
+              <Select
+                options={tokenNoteBlurOptions}
+                value={tokenNoteBlurOptions.find(
+                  (option) => option.value === tokenNoteBlur
+                )}
+                onChange={(option: any) =>
+                  setTokenNoteBlur(option?.value || "high")
+                }
+              />
+            </Box>
+          </Label>
+          <Label py={2}>
+            Font Size
+            <Box sx={{ width: "240px" }}>
+              <Select
+                options={tokenNoteFontSizeOptions}
+                value={tokenNoteFontSizeOptions.find(
+                  (option) => option.value === tokenNoteFontSize
+                )}
+                onChange={(option: any) =>
+                  setTokenNoteFontSize(option?.value || "md")
+                }
+              />
+            </Box>
+          </Label>
+          <Label py={2}>
+            Default Font
+            <Box sx={{ width: "240px" }}>
+              <Select
+                options={tokenNoteFontOptions}
+                value={tokenNoteFontOptions.find(
+                  (option) => option.value === tokenNoteDefaultFont
+                )}
+                onChange={(option: any) =>
+                  setTokenNoteDefaultFont(option?.value || "default")
+                }
+              />
+            </Box>
+          </Label>
+          <Label py={2}>
+            Default Permission
+            <Box sx={{ width: "240px" }}>
+              <Select
+                options={tokenNotePermissionOptions}
+                value={tokenNotePermissionOptions.find(
+                  (option) => option.value === tokenNoteDefaultPermission
+                )}
+                onChange={(option: any) =>
+                  setTokenNoteDefaultPermission(option?.value || "write")
+                }
+              />
+            </Box>
           </Label>
           <Divider bg="text" />
           <Flex py={2}>

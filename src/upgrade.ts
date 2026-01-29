@@ -930,9 +930,23 @@ export const versions: Record<number, VersionCallback> = {
         });
     });
   },
+  // v1.13.0 - Add token notes to state
+  43(v, onUpgrade) {
+    v.stores({}).upgrade((tx) => {
+      onUpgrade?.(43);
+      return tx
+        .table("states")
+        .toCollection()
+        .modify((state) => {
+          if (!state.tokenNotes) {
+            state.tokenNotes = {};
+          }
+        });
+    });
+  },
 };
 
-export const latestVersion = 42;
+export const latestVersion = 43;
 
 /**
  * Load versions onto a database up to a specific version number

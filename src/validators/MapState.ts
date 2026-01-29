@@ -4,6 +4,7 @@ import { MapState } from "../types/MapState";
 import { DrawingSchema } from "./Drawing";
 import { FogSchema } from "./Fog";
 import { NoteSchema } from "./Note";
+import { TokenNoteSchema } from "./TokenNote";
 import { SpellTemplateSchema } from "./SpellTemplate";
 import { TokenStateSchema } from "./TokenState";
 import { Vector2Schema } from "./Vector2";
@@ -35,6 +36,9 @@ export const MapStateSchema: any = {
     notes: {
       $ref: "#/definitions/Notes",
     },
+    tokenNotes: {
+      $ref: "#/definitions/TokenNotes",
+    },
     mapId: {
       type: "string",
     },
@@ -46,6 +50,7 @@ export const MapStateSchema: any = {
     "templates",
     "mapId",
     "notes",
+    "tokenNotes",
     "tokens",
   ],
   type: "object",
@@ -100,6 +105,16 @@ export const MapStateSchema: any = {
       required: [],
       type: "object",
     },
+    TokenNotes: {
+      propertyNames: {
+        type: "string",
+      },
+      additionalProperties: {
+        $ref: "token-note.json",
+      },
+      required: [],
+      type: "object",
+    },
   },
 };
 
@@ -110,6 +125,7 @@ export const ajv = new Ajv({
     FogSchema,
     SpellTemplateSchema,
     NoteSchema,
+    TokenNoteSchema,
     TokenStateSchema,
     Vector2Schema,
     ColorSchema,

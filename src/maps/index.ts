@@ -60,6 +60,7 @@ export function getDefaultMaps(userId: string): {
       templates: {},
       editFlags: ["drawing", "tokens", "notes"],
       notes: {},
+      tokenNotes: {},
     };
     mapStates.push(state);
   }

@@ -99,6 +99,19 @@ function loadVersions(settings: Settings) {
       previewOnRotate: true,
     },
   }));
+  // v1.13.0 - Add token note settings
+  settings.version(12, (prev: any) => ({
+    ...prev,
+    tokenNote: {
+      enabled: false,
+      trigger: "longPress",
+      longPressMs: 500,
+      blur: "high",
+      fontSize: "md",
+      defaultFont: "default",
+      defaultPermission: "write",
+    },
+  }));
 }
 
 export function getSettings() {

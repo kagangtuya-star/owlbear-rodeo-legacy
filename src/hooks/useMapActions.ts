@@ -4,6 +4,7 @@ import { DrawingState } from "../types/Drawing";
 import { FogState } from "../types/Fog";
 import { MapState } from "../types/MapState";
 import { Notes } from "../types/Note";
+import { TokenNotes } from "../types/TokenNote";
 import { SpellTemplateState } from "../types/SpellTemplate";
 import { TokenStates } from "../types/TokenState";
 
@@ -18,13 +19,18 @@ export type TemplatesAction = {
 };
 export type TokensAction = { type: "tokens"; action: Action<TokenStates> };
 export type NotesAction = { type: "notes"; action: Action<Notes> };
+export type TokenNotesAction = {
+  type: "tokenNotes";
+  action: Action<TokenNotes>;
+};
 
 export type MapAction =
   | DrawingsAction
   | FogsAction
   | TemplatesAction
   | TokensAction
-  | NotesAction;
+  | NotesAction
+  | TokenNotesAction;
 
 export type MapActions = {
   actions: MapAction[][];
@@ -57,6 +63,9 @@ function useMapActions(
     if (!mapState.templates) {
       mapState.templates = {};
     }
+    if (!mapState.tokenNotes) {
+      mapState.tokenNotes = {};
+    }
     for (let mapAction of actions) {
       if (mapAction.type === "drawings") {
         mapState.drawings = mapAction.action.execute(mapState.drawings);
@@ -68,6 +77,8 @@ function useMapActions(
         mapState.tokens = mapAction.action.execute(mapState.tokens);
       } else if (mapAction.type === "notes") {
         mapState.notes = mapAction.action.execute(mapState.notes);
+      } else if (mapAction.type === "tokenNotes") {
+        mapState.tokenNotes = mapAction.action.execute(mapState.tokenNotes);
       }
     }
     return mapState;
@@ -80,6 +91,9 @@ function useMapActions(
     if (!mapState.templates) {
       mapState.templates = {};
     }
+    if (!mapState.tokenNotes) {
+      mapState.tokenNotes = {};
+    }
     for (let mapAction of actions) {
       if (mapAction.type === "drawings") {
         mapState.drawings = mapAction.action.undo(mapState.drawings);
@@ -91,6 +105,8 @@ function useMapActions(
         mapState.tokens = mapAction.action.undo(mapState.tokens);
       } else if (mapAction.type === "notes") {
         mapState.notes = mapAction.action.undo(mapState.notes);
+      } else if (mapAction.type === "tokenNotes") {
+        mapState.tokenNotes = mapAction.action.undo(mapState.tokenNotes);
       }
     }
     return mapState;

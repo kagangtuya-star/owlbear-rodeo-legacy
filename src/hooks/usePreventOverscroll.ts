@@ -5,6 +5,16 @@ function usePreventOverscroll(elementRef: React.RefObject<HTMLElement>) {
     // Stop overscroll on chrome and safari
     // also stop pinch to zoom on chrome
     function preventOverscroll(event: WheelEvent) {
+      const path = event.composedPath ? event.composedPath() : [];
+      for (const node of path) {
+        if (
+          node instanceof HTMLElement &&
+          node.dataset &&
+          node.dataset.noteScroll === "true"
+        ) {
+          return;
+        }
+      }
       event.preventDefault();
     }
     const element = elementRef.current;

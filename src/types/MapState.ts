@@ -1,6 +1,7 @@
 import { DrawingState } from "./Drawing";
 import { FogState } from "./Fog";
 import { Notes } from "./Note";
+import { TokenNotes } from "./TokenNote";
 import { SpellTemplateState } from "./SpellTemplate";
 import { TokenStates } from "./TokenState";
 
@@ -13,5 +14,6 @@ export type MapState = {
   templates: SpellTemplateState;
   editFlags: Array<EditFlag>;
   notes: Notes;
+  tokenNotes: TokenNotes;
   mapId: string;
 };

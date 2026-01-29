@@ -267,6 +267,7 @@ function SelectionMenu({
         templates: {},
         editFlags: [],
         fogs: {},
+        tokenNotes: {},
         mapId: mapState.mapId,
       },
     };
@@ -303,6 +304,9 @@ function SelectionMenu({
       if (clipboardData && typeof clipboardData === "object") {
         if (!clipboardData.templates) {
           clipboardData.templates = {};
+        }
+        if (!clipboardData.tokenNotes) {
+          clipboardData.tokenNotes = {};
         }
       }
       if (
