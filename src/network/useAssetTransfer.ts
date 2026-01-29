@@ -102,7 +102,7 @@ export default function useAssetTransfer(gameId: string) {
         url: resolveRemoteUrl(result),
       };
     },
-    [assetApiBase, gameId]
+    [assetApiBase, gameId, resolveRemoteUrl]
   );
 
   const downloadAsset = useCallback(

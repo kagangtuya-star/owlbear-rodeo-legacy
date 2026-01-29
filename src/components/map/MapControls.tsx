@@ -8,6 +8,7 @@ import SelectMapButton from "./SelectMapButton";
 
 import FogToolSettings from "../controls/FogToolSettings";
 import DrawingToolSettings from "../controls/DrawingToolSettings";
+import SpellTemplateToolSettings from "../controls/SpellTemplateToolSettings";
 import PointerToolSettings from "../controls/PointerToolSettings";
 import SelectToolSettings from "../controls/SelectToolSettings";
 
@@ -22,6 +23,7 @@ import FullScreenExitIcon from "../../icons/FullScreenExitIcon";
 import NoteToolIcon from "../../icons/NoteToolIcon";
 import SelectToolIcon from "../../icons/SelectToolIcon";
 import PasteIcon from "../../icons/PasteIcon";
+import SpellTemplateToolIcon from "../../icons/SpellTemplateToolIcon";
 
 import UndoButton from "../controls/shared/UndoButton";
 import RedoButton from "../controls/shared/RedoButton";
@@ -35,6 +37,7 @@ import {
   MapResetEventHandler,
 } from "../../types/Events";
 import { Settings } from "../../types/Settings";
+import type { SpellTemplateToolSettings as SpellTemplateToolSettingsType } from "../../types/SpellTemplate";
 
 import { useKeyboard } from "../../contexts/KeyboardContext";
 import { useImageImport } from "../../contexts/ImageImportContext";
@@ -99,6 +102,7 @@ function MapContols({
     }
     if (!map || !allowMapDrawing) {
       disabled.push("drawing");
+      disabled.push("spellTemplates");
     }
     if (!map || !allowFogDrawing) {
       disabled.push("fog");
@@ -132,6 +136,17 @@ function MapContols({
     return disabled;
   }, [mapState]);
 
+  const defaultSpellTemplateSettings: SpellTemplateToolSettingsType = {
+    type: "circle",
+    rule: "center",
+    color: "red",
+    opacity: 0.5,
+    strokeWidth: 1,
+    lineWidth: 1,
+    coneAngle: 90,
+    ringInnerRatio: 0.5,
+  };
+
   const toolsById: Record<string, MapTool> = {
     move: {
       id: "move",
@@ -156,6 +171,12 @@ function MapContols({
       title: "Drawing Tool (D)",
       SettingsComponent: DrawingToolSettings,
     },
+    spellTemplates: {
+      id: "spellTemplates",
+      icon: <SpellTemplateToolIcon />,
+      title: "Spell Templates (A)",
+      SettingsComponent: SpellTemplateToolSettings,
+    },
     measure: {
       id: "measure",
       icon: <MeasureToolIcon />,
@@ -178,6 +199,7 @@ function MapContols({
     "select",
     "fog",
     "drawing",
+    "spellTemplates",
     "measure",
     "pointer",
     "note",
@@ -301,11 +323,16 @@ function MapContols({
       !Settings ||
       (selectedToolId !== "fog" &&
         selectedToolId !== "drawing" &&
+        selectedToolId !== "spellTemplates" &&
         selectedToolId !== "pointer" &&
         selectedToolId !== "select")
     ) {
       return null;
     }
+    const selectedSettings =
+      selectedToolId === "spellTemplates" && !toolSettings.spellTemplates
+        ? defaultSpellTemplateSettings
+        : toolSettings[selectedToolId];
     return (
       <Box
         sx={{
@@ -319,13 +346,15 @@ function MapContols({
         p={1}
       >
         <Settings
-          settings={toolSettings[selectedToolId]}
+          settings={selectedSettings}
           onSettingChange={(
-            change: Partial<Settings["fog" | "drawing" | "pointer" | "select"]>
+            change: Partial<
+              Settings["fog" | "drawing" | "spellTemplates" | "pointer" | "select"]
+            >
           ) =>
             onToolSettingChange({
               [selectedToolId]: {
-                ...toolSettings[selectedToolId],
+                ...selectedSettings,
                 ...change,
               },
             })
@@ -346,6 +375,12 @@ function MapContols({
     }
     if (shortcuts.drawingTool(event) && !disabledControls.includes("drawing")) {
       onSelectedToolChange("drawing");
+    }
+    if (
+      shortcuts.spellTemplateTool(event) &&
+      !disabledControls.includes("spellTemplates")
+    ) {
+      onSelectedToolChange("spellTemplates");
     }
     if (shortcuts.fogTool(event) && !disabledControls.includes("fog")) {
       onSelectedToolChange("fog");

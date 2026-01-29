@@ -4,6 +4,7 @@ import { MapState } from "../types/MapState";
 import { DrawingSchema } from "./Drawing";
 import { FogSchema } from "./Fog";
 import { NoteSchema } from "./Note";
+import { SpellTemplateSchema } from "./SpellTemplate";
 import { TokenStateSchema } from "./TokenState";
 import { Vector2Schema } from "./Vector2";
 import { ColorSchema } from "./Color";
@@ -21,6 +22,9 @@ export const MapStateSchema: any = {
     fogs: {
       $ref: "#/definitions/FogState",
     },
+    templates: {
+      $ref: "#/definitions/SpellTemplateState",
+    },
     editFlags: {
       items: {
         enum: ["drawing", "fog", "notes", "tokens"],
@@ -35,7 +39,15 @@ export const MapStateSchema: any = {
       type: "string",
     },
   },
-  required: ["drawings", "editFlags", "fogs", "mapId", "notes", "tokens"],
+  required: [
+    "drawings",
+    "editFlags",
+    "fogs",
+    "templates",
+    "mapId",
+    "notes",
+    "tokens",
+  ],
   type: "object",
   definitions: {
     TokenStates: {
@@ -68,6 +80,16 @@ export const MapStateSchema: any = {
       required: [],
       type: "object",
     },
+    SpellTemplateState: {
+      propertyNames: {
+        type: "string",
+      },
+      additionalProperties: {
+        $ref: "spell-template.json",
+      },
+      required: [],
+      type: "object",
+    },
     Notes: {
       propertyNames: {
         type: "string",
@@ -86,6 +108,7 @@ export const ajv = new Ajv({
     MapStateSchema,
     DrawingSchema,
     FogSchema,
+    SpellTemplateSchema,
     NoteSchema,
     TokenStateSchema,
     Vector2Schema,

@@ -249,6 +249,9 @@ function ImportExportModal({
           for (let map of mapsToAdd) {
             if (map) {
               let state: MapState = await importDB.table("states").get(map.id);
+              if (!state.templates) {
+                state.templates = {};
+              }
               // Apply new token ids to imported state
               for (let tokenState of Object.values(state.tokens)) {
                 if (tokenState.tokenId in newTokenIds) {

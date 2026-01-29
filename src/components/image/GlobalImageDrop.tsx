@@ -102,7 +102,7 @@ function GlobalImageDrop({
     }
     const html = dataTransfer.getData("text/html");
     if (html) {
-      const urlMatch = html.match(/src=\"?([^\"\\s]+)\"?\\s*/);
+      const urlMatch = html.match(/src="?([^"\s]+)"?\s*/);
       if (urlMatch) {
         const url = urlMatch[1].replace("&amp;", "&");
         if (isHttpUrl(url)) {

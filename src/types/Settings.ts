@@ -3,6 +3,7 @@ import { DrawingToolSettings } from "./Drawing";
 import { FogToolSettings } from "./Fog";
 import { PointerToolSettings } from "./Pointer";
 import { SelectToolSettings } from "./Select";
+import { SpellTemplateToolSettings } from "./SpellTemplate";
 
 export type DrawingSettings = DrawingToolSettings;
 export type FogSettings = FogToolSettings & {
@@ -32,6 +33,7 @@ export type Settings = {
   dice: DiceSettings;
   drawing: DrawingSettings;
   fog: FogSettings;
+  spellTemplates: SpellTemplateToolSettings;
   game: GameSettings;
   map: MapSettings;
   pointer: PointerSettings;

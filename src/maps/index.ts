@@ -57,6 +57,7 @@ export function getDefaultMaps(userId: string): {
       tokens: {},
       drawings: {},
       fogs: {},
+      templates: {},
       editFlags: ["drawing", "tokens", "notes"],
       notes: {},
     };

@@ -4,6 +4,7 @@ import { DrawingState } from "../types/Drawing";
 import { FogState } from "../types/Fog";
 import { MapState } from "../types/MapState";
 import { Notes } from "../types/Note";
+import { SpellTemplateState } from "../types/SpellTemplate";
 import { TokenStates } from "../types/TokenState";
 
 export type DrawingsAction = {
@@ -11,12 +12,17 @@ export type DrawingsAction = {
   action: Action<DrawingState>;
 };
 export type FogsAction = { type: "fogs"; action: Action<FogState> };
+export type TemplatesAction = {
+  type: "templates";
+  action: Action<SpellTemplateState>;
+};
 export type TokensAction = { type: "tokens"; action: Action<TokenStates> };
 export type NotesAction = { type: "notes"; action: Action<Notes> };
 
 export type MapAction =
   | DrawingsAction
   | FogsAction
+  | TemplatesAction
   | TokensAction
   | NotesAction;
 
@@ -48,11 +54,16 @@ function useMapActions(
     mapState: MapState,
     actions: MapAction[]
   ): MapState {
+    if (!mapState.templates) {
+      mapState.templates = {};
+    }
     for (let mapAction of actions) {
       if (mapAction.type === "drawings") {
         mapState.drawings = mapAction.action.execute(mapState.drawings);
       } else if (mapAction.type === "fogs") {
         mapState.fogs = mapAction.action.execute(mapState.fogs);
+      } else if (mapAction.type === "templates") {
+        mapState.templates = mapAction.action.execute(mapState.templates);
       } else if (mapAction.type === "tokens") {
         mapState.tokens = mapAction.action.execute(mapState.tokens);
       } else if (mapAction.type === "notes") {
@@ -66,11 +77,16 @@ function useMapActions(
     mapState: MapState,
     actions: MapAction[]
   ): MapState {
+    if (!mapState.templates) {
+      mapState.templates = {};
+    }
     for (let mapAction of actions) {
       if (mapAction.type === "drawings") {
         mapState.drawings = mapAction.action.undo(mapState.drawings);
       } else if (mapAction.type === "fogs") {
         mapState.fogs = mapAction.action.undo(mapState.fogs);
+      } else if (mapAction.type === "templates") {
+        mapState.templates = mapAction.action.undo(mapState.templates);
       } else if (mapAction.type === "tokens") {
         mapState.tokens = mapAction.action.undo(mapState.tokens);
       } else if (mapAction.type === "notes") {

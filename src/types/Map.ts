@@ -7,6 +7,7 @@ export type MapToolId =
   | "select"
   | "fog"
   | "drawing"
+  | "spellTemplates"
   | "measure"
   | "pointer"
   | "note"

@@ -9,6 +9,7 @@ import MapGrid from "./MapGrid";
 import DrawingTool from "../tools/DrawingTool";
 import FogTool from "../tools/FogTool";
 import MeasureTool from "../tools/MeasureTool";
+import SpellTemplateTool from "../tools/SpellTemplateTool";
 import NetworkedMapPointer from "../../network/NetworkedMapPointer";
 
 import { useSettings } from "../../contexts/SettingsContext";
@@ -29,6 +30,7 @@ import { Fog, FogState } from "../../types/Fog";
 import { Map as MapType, MapToolId } from "../../types/Map";
 import { MapState } from "../../types/MapState";
 import { Settings } from "../../types/Settings";
+import { SpellTemplate, SpellTemplateState } from "../../types/SpellTemplate";
 import {
   MapChangeEventHandler,
   MapResetEventHandler,
@@ -62,6 +64,7 @@ type MapProps = {
   onMapReset: MapResetEventHandler;
   onMapDraw: (action: Action<DrawingState>) => void;
   onFogDraw: (action: Action<FogState>) => void;
+  onMapTemplateDraw: (action: Action<SpellTemplateState>) => void;
   onMapNoteCreate: NoteCreateEventHander;
   onMapNoteChange: NoteChangeEventHandler;
   onMapNoteRemove: NoteRemoveEventHander;
@@ -85,6 +88,7 @@ function Map({
   onMapReset,
   onMapDraw,
   onFogDraw,
+  onMapTemplateDraw,
   onMapNoteCreate,
   onMapNoteChange,
   onMapNoteRemove,
@@ -109,6 +113,8 @@ function Map({
 
   const drawShapes = Object.values(mapState?.drawings || {});
   const fogShapes = Object.values(mapState?.fogs || {});
+  const templateShapes = Object.values(mapState?.templates || {});
+  const templateTokens = Object.values(mapState?.tokens || {});
 
   function handleToolAction(action: string) {
     if (action === "eraseAll") {
@@ -138,6 +144,18 @@ function Map({
 
   function handleFogShapesEdit(shapes: Partial<Fog>[]) {
     onFogDraw(new EditStatesAction(shapes));
+  }
+
+  function handleTemplateAdd(template: SpellTemplate) {
+    onMapTemplateDraw(new AddStatesAction([template]));
+  }
+
+  function handleTemplateEdit(edits: Partial<SpellTemplate>[]) {
+    onMapTemplateDraw(new EditStatesAction(edits));
+  }
+
+  function handleTemplateRemove(templateIds: string[]) {
+    onMapTemplateDraw(new RemoveStatesAction(templateIds));
   }
 
   const { tokens, propTokens, tokenMenu, tokenDragOverlay } = useMapTokens(
@@ -211,6 +229,19 @@ function Map({
           onDrawingsRemove={handleMapShapesRemove}
           active={selectedToolId === "drawing"}
           toolSettings={settings.drawing}
+        />
+        <SpellTemplateTool
+          map={map}
+          templates={templateShapes}
+          active={selectedToolId === "spellTemplates"}
+          toolSettings={settings.spellTemplates}
+          onTemplateAdd={handleTemplateAdd}
+          onTemplateEdit={handleTemplateEdit}
+          onTemplateRemove={handleTemplateRemove}
+          tokens={templateTokens}
+          editable={
+            !!(map?.owner === userId || mapState?.editFlags.includes("drawing"))
+          }
         />
         {notes}
         {tokens}

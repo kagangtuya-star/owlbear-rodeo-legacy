@@ -33,6 +33,7 @@ import {
 import { TokenState } from "../types/TokenState";
 import { DrawingState } from "../types/Drawing";
 import { FogState } from "../types/Fog";
+import { SpellTemplateState } from "../types/SpellTemplate";
 import { Note } from "../types/Note";
 import {
   AddStatesAction,
@@ -249,6 +250,7 @@ function NetworkedMapAndTokens({
     addToast,
     getAsset,
     assetLoadStart,
+    assetProgressUpdate,
     assetApiBase,
     gameId,
   ]);
@@ -307,6 +309,10 @@ function NetworkedMapAndTokens({
 
   function handleFogDraw(action: Action<FogState>) {
     addActions([{ type: "fogs", action }]);
+  }
+
+  function handleTemplateDraw(action: Action<SpellTemplateState>) {
+    addActions([{ type: "templates", action }]);
   }
 
   function handleUndo() {
@@ -655,6 +661,7 @@ function NetworkedMapAndTokens({
         onMapReset={handleMapReset}
         onMapDraw={handleMapDraw}
         onFogDraw={handleFogDraw}
+        onMapTemplateDraw={handleTemplateDraw}
         onMapNoteCreate={handleNoteCreate}
         onMapNoteChange={handleNoteChange}
         onMapNoteRemove={handleNoteRemove}

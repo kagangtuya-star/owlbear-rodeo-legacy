@@ -264,6 +264,7 @@ function SelectionMenu({
         tokens: {},
         notes: {},
         drawings: {},
+        templates: {},
         editFlags: [],
         fogs: {},
         mapId: mapState.mapId,
@@ -298,9 +299,15 @@ function SelectionMenu({
         clipboardText = localClipboardDataRef.current;
       }
       const clipboard = JSON.parse(clipboardText);
+      const clipboardData = clipboard?.data;
+      if (clipboardData && typeof clipboardData === "object") {
+        if (!clipboardData.templates) {
+          clipboardData.templates = {};
+        }
+      }
       if (
         clipboard.version === version &&
-        isMapState(clipboard.data) &&
+        isMapState(clipboardData) &&
         isSelection(clipboard.selection)
       ) {
         // Find new selection position

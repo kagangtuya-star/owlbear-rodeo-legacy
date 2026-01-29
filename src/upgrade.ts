@@ -916,9 +916,23 @@ export const versions: Record<number, VersionCallback> = {
         });
     });
   },
+  // v1.12.0 - Add spell templates to state
+  42(v, onUpgrade) {
+    v.stores({}).upgrade((tx) => {
+      onUpgrade?.(42);
+      return tx
+        .table("states")
+        .toCollection()
+        .modify((state) => {
+          if (!state.templates) {
+            state.templates = {};
+          }
+        });
+    });
+  },
 };
 
-export const latestVersion = 41;
+export const latestVersion = 42;
 
 /**
  * Load versions onto a database up to a specific version number

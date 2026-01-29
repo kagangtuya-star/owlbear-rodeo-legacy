@@ -84,6 +84,20 @@ function loadVersions(settings: Settings) {
       compressionQuality: prev?.asset?.compressionQuality ?? 0.8,
     },
   }));
+  // v1.12.0 - Add spell template tool settings
+  settings.version(11, (prev: any) => ({
+    ...prev,
+    spellTemplates: {
+      type: "circle",
+      rule: "center",
+      color: "red",
+      opacity: 0.5,
+      strokeWidth: 1,
+      lineWidth: 1,
+      coneAngle: 90,
+      ringInnerRatio: 0.5,
+    },
+  }));
 }
 
 export function getSettings() {

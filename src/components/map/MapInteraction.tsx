@@ -162,6 +162,7 @@ function MapInteraction({
         return "move";
       case "fog":
       case "drawing":
+      case "spellTemplates":
         return "crosshair";
       case "measure":
       case "pointer":

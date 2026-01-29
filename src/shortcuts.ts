@@ -57,6 +57,7 @@ const shortcuts: Record<string, Shortcut> = {
   moveTool: (event) => singleKey(event, "w"),
   drawingTool: (event) => singleKey(event, "d"),
   fogTool: (event) => singleKey(event, "f"),
+  spellTemplateTool: (event) => singleKey(event, "a"),
   measureTool: (event) => singleKey(event, "m"),
   pointerTool: (event) => singleKey(event, "q"),
   noteTool: (event) => singleKey(event, "n"),

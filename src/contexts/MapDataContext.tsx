@@ -57,6 +57,7 @@ const defaultMapState: Omit<MapState, "mapId"> = {
   tokens: {},
   drawings: {},
   fogs: {},
+  templates: {},
   editFlags: ["drawing", "tokens", "notes"],
   notes: {},
 };
