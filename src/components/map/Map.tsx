@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Box } from "theme-ui";
 import { useToasts } from "react-toast-notifications";
 
@@ -31,6 +31,7 @@ import { Map as MapType, MapToolId } from "../../types/Map";
 import { MapState } from "../../types/MapState";
 import { Settings } from "../../types/Settings";
 import { SpellTemplate, SpellTemplateState } from "../../types/SpellTemplate";
+import RemoveTokenIcon from "../../icons/RemoveTokenIcon";
 import {
   MapChangeEventHandler,
   MapResetEventHandler,
@@ -114,6 +115,12 @@ function Map({
   const [selectedToolId, setSelectedToolId] = useState<MapToolId>("move");
   const { settings, setSettings } = useSettings();
 
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
+    null
+  );
+  const [isTemplateDragging, setIsTemplateDragging] = useState(false);
+  const templateTrashRef = useRef<HTMLDivElement | null>(null);
+
   function handleToolSettingChange(change: Partial<Settings>) {
     setSettings((prevSettings) => ({
       ...prevSettings,
@@ -166,6 +173,28 @@ function Map({
 
   function handleTemplateRemove(templateIds: string[]) {
     onMapTemplateDraw(new RemoveStatesAction(templateIds));
+  }
+
+  function handleRemoveSelectedTemplate() {
+    if (!selectedTemplateId) {
+      return;
+    }
+    handleTemplateRemove([selectedTemplateId]);
+    setSelectedTemplateId(null);
+  }
+
+  function isPointOverTemplateTrash(clientX: number, clientY: number) {
+    const trash = templateTrashRef.current;
+    if (!trash) {
+      return false;
+    }
+    const rect = trash.getBoundingClientRect();
+    return (
+      clientX >= rect.left &&
+      clientX <= rect.right &&
+      clientY >= rect.top &&
+      clientY <= rect.bottom
+    );
   }
 
   const { tokenNoteSheet, tokenNotePopover, openTokenNote } = useTokenNotes(
@@ -228,9 +257,28 @@ function Map({
               toolSettings={settings}
               onToolSettingChange={handleToolSettingChange}
               onToolAction={handleToolAction}
+              selectedTemplateId={selectedTemplateId}
+              onRemoveSelectedTemplate={handleRemoveSelectedTemplate}
               onUndo={onUndo}
               onRedo={onRedo}
             />
+            {selectedToolId === "spellTemplates" && isTemplateDragging && (
+              <Box
+                ref={templateTrashRef}
+                sx={{
+                  position: "absolute",
+                  left: "50%",
+                  bottom: "12px",
+                  transform: "translateX(-50%)",
+                  backgroundColor: "overlay",
+                  borderRadius: "999px",
+                  padding: "8px",
+                  pointerEvents: "none",
+                }}
+              >
+                <RemoveTokenIcon />
+              </Box>
+            )}
             {tokenMenu}
             {noteMenu}
             {noteHud}
@@ -263,7 +311,11 @@ function Map({
           toolSettings={settings.spellTemplates}
           onTemplateAdd={handleTemplateAdd}
           onTemplateEdit={handleTemplateEdit}
-          onTemplateRemove={handleTemplateRemove}
+          selectedTemplateId={selectedTemplateId}
+          onSelectedTemplateIdChange={setSelectedTemplateId}
+          onRemoveSelectedTemplate={handleRemoveSelectedTemplate}
+          onTemplateDragStateChange={setIsTemplateDragging}
+          isPointOverTrash={isPointOverTemplateTrash}
           tokens={templateTokens}
           editable={
             !!(map?.owner === userId || mapState?.editFlags.includes("drawing"))

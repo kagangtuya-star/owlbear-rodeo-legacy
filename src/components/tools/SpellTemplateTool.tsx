@@ -66,7 +66,11 @@ type SpellTemplateToolProps = {
   toolSettings: SpellTemplateToolSettings;
   onTemplateAdd: SpellTemplateAddHandler;
   onTemplateEdit: SpellTemplateEditHandler;
-  onTemplateRemove: SpellTemplateRemoveHandler;
+  selectedTemplateId: string | null;
+  onSelectedTemplateIdChange: (templateId: string | null) => void;
+  onRemoveSelectedTemplate?: () => void;
+  onTemplateDragStateChange?: (dragging: boolean) => void;
+  isPointOverTrash?: (clientX: number, clientY: number) => boolean;
   tokens?: TokenState[];
 };
 function SpellTemplateTool({
@@ -77,7 +81,11 @@ function SpellTemplateTool({
   toolSettings: incomingToolSettings,
   onTemplateAdd,
   onTemplateEdit,
-  onTemplateRemove,
+  selectedTemplateId,
+  onSelectedTemplateIdChange,
+  onRemoveSelectedTemplate,
+  onTemplateDragStateChange,
+  isPointOverTrash,
   tokens = [],
 }: SpellTemplateToolProps) {
   const toolSettings: SpellTemplateToolSettings =
@@ -96,9 +104,6 @@ function SpellTemplateTool({
   const snapPositionToGrid = useGridSnapping();
 
   const [drawingTemplate, setDrawingTemplate] = useState<SpellTemplate | null>(
-    null
-  );
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
     null
   );
   const [rotatingTemplateId, setRotatingTemplateId] = useState<string | null>(
@@ -121,11 +126,23 @@ function SpellTemplateTool({
   useEffect(() => {
     if (!active) {
       setDrawingTemplate(null);
-      setSelectedTemplateId(null);
+      onSelectedTemplateIdChange(null);
       setRotatingTemplateId(null);
+      onTemplateDragStateChange && onTemplateDragStateChange(false);
       setPreventMapInteraction(false);
     }
-  }, [active, setPreventMapInteraction]);
+  }, [
+    active,
+    onSelectedTemplateIdChange,
+    onTemplateDragStateChange,
+    setPreventMapInteraction,
+  ]);
+
+  useEffect(() => {
+    if (toolSettings.type !== "drag") {
+      onTemplateDragStateChange && onTemplateDragStateChange(false);
+    }
+  }, [toolSettings.type, onTemplateDragStateChange]);
 
   const templatesById = useMemo(() => {
     const map: Record<string, SpellTemplate> = {};
@@ -137,9 +154,9 @@ function SpellTemplateTool({
 
   useEffect(() => {
     if (selectedTemplateId && !templatesById[selectedTemplateId]) {
-      setSelectedTemplateId(null);
+      onSelectedTemplateIdChange(null);
     }
-  }, [selectedTemplateId, templatesById]);
+  }, [selectedTemplateId, templatesById, onSelectedTemplateIdChange]);
 
   const getBrushPosition = useCallback(
     (snapping = true) => {
@@ -212,7 +229,12 @@ function SpellTemplateTool({
     [toolSettings, getWidthNormalized]
   );
   useEffect(() => {
-    if (!active || !editable || toolSettings.type === "path") {
+    if (
+      !active ||
+      !editable ||
+      toolSettings.type === "path" ||
+      toolSettings.type === "drag"
+    ) {
       return;
     }
 
@@ -228,9 +250,13 @@ function SpellTemplateTool({
       if (!brushPosition) {
         return;
       }
-      setSelectedTemplateId(null);
+      const templateType = toolSettings.type;
+      if (templateType === "drag") {
+        return;
+      }
+      onSelectedTemplateIdChange(null);
       drawStartRef.current = brushPosition;
-      setDrawingTemplate(createTemplate(toolSettings.type, brushPosition));
+      setDrawingTemplate(createTemplate(templateType, brushPosition));
     }
 
     function handleDragMove(props: MapDragEvent) {
@@ -332,7 +358,7 @@ function SpellTemplateTool({
       }
       if (drawingTemplate) {
         onTemplateAdd(drawingTemplate);
-        setSelectedTemplateId(drawingTemplate.id);
+        onSelectedTemplateIdChange(drawingTemplate.id);
       }
       setDrawingTemplate(null);
       drawStartRef.current = null;
@@ -399,7 +425,7 @@ function SpellTemplateTool({
       if (!brushPosition) {
         return;
       }
-      setSelectedTemplateId(null);
+      onSelectedTemplateIdChange(null);
       setDrawingTemplate((prevTemplate) => {
         if (!prevTemplate) {
           return createTemplate("path", brushPosition);
@@ -426,7 +452,7 @@ function SpellTemplateTool({
           ...drawingTemplate,
           params: { ...drawingTemplate.params, points },
         });
-        setSelectedTemplateId(drawingTemplate.id);
+        onSelectedTemplateIdChange(drawingTemplate.id);
       }
       setDrawingTemplate(null);
     }
@@ -603,16 +629,15 @@ function SpellTemplateTool({
           } else {
             setDrawingTemplate(null);
           }
-        } else if (selectedTemplateId) {
-          onTemplateRemove([selectedTemplateId]);
-          setSelectedTemplateId(null);
+        } else if (selectedTemplateId && onRemoveSelectedTemplate) {
+          onRemoveSelectedTemplate();
         }
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [drawingTemplate, selectedTemplateId, onTemplateRemove]);
+  }, [drawingTemplate, selectedTemplateId, onRemoveSelectedTemplate]);
   const affectedCells: AffectedCell[] = useMemo(() => {
     if (!activeTemplate || !map) {
       return [];
@@ -668,12 +693,38 @@ function SpellTemplateTool({
     template: SpellTemplate,
     event: Konva.KonvaEventObject<DragEvent>
   ) {
+    const finishDrag = () => {
+      onTemplateDragStateChange && onTemplateDragStateChange(false);
+    };
     const node = event.target;
     const delta = node.position();
-    if (delta.x === 0 && delta.y === 0) {
+    node.position({ x: 0, y: 0 });
+    const nativeEvent = event.evt as MouseEvent | TouchEvent;
+    let clientX: number | undefined;
+    let clientY: number | undefined;
+    if (typeof (nativeEvent as MouseEvent).clientX === "number") {
+      clientX = (nativeEvent as MouseEvent).clientX;
+      clientY = (nativeEvent as MouseEvent).clientY;
+    } else if ("changedTouches" in nativeEvent && nativeEvent.changedTouches[0]) {
+      clientX = nativeEvent.changedTouches[0].clientX;
+      clientY = nativeEvent.changedTouches[0].clientY;
+    }
+    if (
+      clientX !== undefined &&
+      clientY !== undefined &&
+      isPointOverTrash &&
+      isPointOverTrash(clientX, clientY)
+    ) {
+      if (selectedTemplateId === template.id && onRemoveSelectedTemplate) {
+        onRemoveSelectedTemplate();
+      }
+      finishDrag();
       return;
     }
-    node.position({ x: 0, y: 0 });
+    if (delta.x === 0 && delta.y === 0) {
+      finishDrag();
+      return;
+    }
     const deltaNorm = {
       x: delta.x / mapWidth,
       y: delta.y / mapHeight,
@@ -690,6 +741,7 @@ function SpellTemplateTool({
           params: { ...template.params, points },
         },
       ]);
+      finishDrag();
       return;
     }
 
@@ -699,6 +751,7 @@ function SpellTemplateTool({
         origin: Vector2.add(template.origin, deltaNorm),
       },
     ]);
+    finishDrag();
   }
 
   const renderRotationHandle = useCallback(
@@ -788,21 +841,30 @@ function SpellTemplateTool({
     return (
       <Group
         key={template.id}
-        draggable={active && editable && isSelected && !rotatingTemplateId}
+        draggable={
+          active &&
+          editable &&
+          isSelected &&
+          !rotatingTemplateId &&
+          toolSettings.type === "drag"
+        }
+        onDragStart={() => {
+          onTemplateDragStateChange && onTemplateDragStateChange(true);
+        }}
         onDragEnd={(event) => handleTemplateDragEnd(template, event)}
         onMouseDown={() => {
           if (!active) {
             return;
           }
           ignoreNextDragRef.current = true;
-          setSelectedTemplateId(template.id);
+          onSelectedTemplateIdChange(template.id);
         }}
         onTap={() => {
           if (!active) {
             return;
           }
           ignoreNextDragRef.current = true;
-          setSelectedTemplateId(template.id);
+          onSelectedTemplateIdChange(template.id);
         }}
         onMouseUp={() => {
           ignoreNextDragRef.current = false;

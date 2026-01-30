@@ -14,6 +14,8 @@ import BrushLineIcon from "../../icons/BrushLineIcon";
 import BrushTriangleIcon from "../../icons/BrushTriangleIcon";
 import FogPreviewOffIcon from "../../icons/FogPreviewOffIcon";
 import FogPreviewOnIcon from "../../icons/FogPreviewOnIcon";
+import SpellTemplateDragToolIcon from "../../icons/SpellTemplateDragToolIcon";
+import RemoveTokenIcon from "../../icons/RemoveTokenIcon";
 import SettingsIcon from "../../icons/SettingsIcon";
 
 import colors, { colorOptions, Color } from "../../helpers/colors";
@@ -21,12 +23,14 @@ import colors, { colorOptions, Color } from "../../helpers/colors";
 import {
   SpellTemplateRule,
   SpellTemplateToolSettings as SpellTemplateToolSettingsType,
-  SpellTemplateType,
+  SpellTemplateToolType,
 } from "../../types/SpellTemplate";
 
 type SpellTemplateToolSettingsProps = {
   settings: SpellTemplateToolSettingsType;
   onSettingChange: (change: Partial<SpellTemplateToolSettingsType>) => void;
+  selectedTemplateId?: string | null;
+  onRemoveSelectedTemplate?: (() => void) | null;
 };
 
 type RuleOption = { value: SpellTemplateRule; label: string };
@@ -165,6 +169,8 @@ function SpellTemplateColorControl({
 function SpellTemplateToolSettings({
   settings,
   onSettingChange,
+  selectedTemplateId,
+  onRemoveSelectedTemplate,
 }: SpellTemplateToolSettingsProps) {
   const isSmallScreen = useMedia({ query: "(max-width: 799px)" });
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -183,6 +189,16 @@ function SpellTemplateToolSettings({
   };
 
   const tools = [
+    {
+      id: "drag",
+      title: "Move",
+      isSelected: settings.type === "drag",
+      icon: (
+        <Box sx={toolIconSx}>
+          <SpellTemplateDragToolIcon />
+        </Box>
+      ),
+    },
     {
       id: "circle",
       title: "Circle",
@@ -398,11 +414,19 @@ function SpellTemplateToolSettings({
       <ToolSection
         tools={tools}
         onToolClick={(tool) =>
-          onSettingChange({ type: tool.id as SpellTemplateType })
+          onSettingChange({ type: tool.id as SpellTemplateToolType })
         }
         collapse={isSmallScreen}
       />
       <Divider vertical />
+      <IconButton
+        aria-label="Remove Selected Template"
+        title="Remove Selected Template"
+        onClick={() => onRemoveSelectedTemplate && onRemoveSelectedTemplate()}
+        disabled={!selectedTemplateId || !onRemoveSelectedTemplate}
+      >
+        <RemoveTokenIcon />
+      </IconButton>
       <IconButton
         aria-label={
           settings.previewOnRotate

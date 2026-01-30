@@ -60,6 +60,8 @@ type MapControlsProps = {
   toolSettings: Settings;
   onToolSettingChange: (change: Partial<Settings>) => void;
   onToolAction: (actionId: string) => void;
+  selectedTemplateId: string | null;
+  onRemoveSelectedTemplate: () => void;
   onUndo: () => void;
   onRedo: () => void;
 };
@@ -76,6 +78,8 @@ function MapContols({
   toolSettings,
   onToolSettingChange,
   onToolAction,
+  selectedTemplateId,
+  onRemoveSelectedTemplate,
   onUndo,
   onRedo,
 }: MapControlsProps) {
@@ -405,6 +409,12 @@ function MapContols({
           }
           onToolAction={onToolAction}
           disabledActions={disabledSettings[selectedToolId]}
+          selectedTemplateId={
+            selectedToolId === "spellTemplates" ? selectedTemplateId : null
+          }
+          onRemoveSelectedTemplate={
+            selectedToolId === "spellTemplates" ? onRemoveSelectedTemplate : null
+          }
         />
       </Box>
     );

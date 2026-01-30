@@ -8,6 +8,8 @@ export type SpellTemplateType =
   | "ring"
   | "path";
 
+export type SpellTemplateToolType = SpellTemplateType | "drag";
+
 export type SpellTemplateRule =
   | "center"
   | "area_50"
@@ -43,7 +45,7 @@ export type SpellTemplate = {
 export type SpellTemplateState = Record<string, SpellTemplate>;
 
 export type SpellTemplateToolSettings = {
-  type: SpellTemplateType;
+  type: SpellTemplateToolType;
   rule: SpellTemplateRule;
   color: string;
   opacity: number;
