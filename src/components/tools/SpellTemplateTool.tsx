@@ -695,6 +695,7 @@ function SpellTemplateTool({
   ) {
     const finishDrag = () => {
       onTemplateDragStateChange && onTemplateDragStateChange(false);
+      setPreventMapInteraction(false);
     };
     const node = event.target;
     const delta = node.position();
@@ -838,6 +839,23 @@ function SpellTemplateTool({
 
   function renderTemplate(template: SpellTemplate) {
     const isSelected = template.id === selectedTemplateId;
+    const bounds = getTemplateBoundingBox(template, {
+      x: mapWidth,
+      y: mapHeight,
+    });
+    const dragBoundFunc = (pos: { x: number; y: number }) => {
+      const minX = -bounds.min.x;
+      const maxX = mapWidth - bounds.max.x;
+      const minY = -bounds.min.y;
+      const maxY = mapHeight - bounds.max.y;
+      if (minX > maxX || minY > maxY) {
+        return pos;
+      }
+      return {
+        x: Math.min(Math.max(pos.x, minX), maxX),
+        y: Math.min(Math.max(pos.y, minY), maxY),
+      };
+    };
     return (
       <Group
         key={template.id}
@@ -849,9 +867,11 @@ function SpellTemplateTool({
           toolSettings.type === "drag"
         }
         onDragStart={() => {
+          setPreventMapInteraction(true);
           onTemplateDragStateChange && onTemplateDragStateChange(true);
         }}
         onDragEnd={(event) => handleTemplateDragEnd(template, event)}
+        dragBoundFunc={dragBoundFunc}
         onMouseDown={() => {
           if (!active) {
             return;

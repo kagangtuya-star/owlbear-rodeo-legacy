@@ -48,6 +48,7 @@ function SpellTemplateShape({ template, ...props }: SpellTemplateProps) {
     const innerRadius = (template.params.innerRadius || 0) * minSide;
     const ringWidth = Math.max(outerRadius - innerRadius, strokeWidth);
     const ringRadius = innerRadius + ringWidth / 2;
+    const hitWidth = Math.max(10, ringWidth);
     return (
       <Circle
         x={origin.x}
@@ -56,6 +57,7 @@ function SpellTemplateShape({ template, ...props }: SpellTemplateProps) {
         stroke={color}
         opacity={template.style.opacity}
         strokeWidth={ringWidth}
+        hitStrokeWidth={hitWidth}
         {...props}
       />
     );
@@ -114,12 +116,14 @@ function SpellTemplateShape({ template, ...props }: SpellTemplateProps) {
       Vector2.multiply(point, { x: mapWidth, y: mapHeight })
     );
     const width = (template.params.width || 0) * minSide;
+    const hitWidth = Math.max(12, width);
     return (
       <Line
         points={convertPointsToNumbers(points)}
         stroke={color}
         opacity={template.style.opacity}
         strokeWidth={width}
+        hitStrokeWidth={hitWidth}
         lineCap="round"
         lineJoin="round"
         {...props}
