@@ -30,11 +30,18 @@ const defaultNoteSize = 2;
 type MapNoteProps = {
   map: Map | null;
   active: boolean;
+  mode: "note" | "text";
   onNoteCreate: NoteCreateEventHander;
   onNoteMenuOpen: NoteMenuOpenEventHandler;
 };
 
-function NoteTool({ map, active, onNoteCreate, onNoteMenuOpen }: MapNoteProps) {
+function NoteTool({
+  map,
+  active,
+  mode,
+  onNoteCreate,
+  onNoteMenuOpen,
+}: MapNoteProps) {
   const interactionEmitter = useInteractionEmitter();
   const userId = useUserId();
   const mapStageRef = useMapStage();
@@ -76,6 +83,7 @@ function NoteTool({ map, active, onNoteCreate, onNoteMenuOpen }: MapNoteProps) {
       if (!brushPosition || !userId) {
         return;
       }
+      const isText = mode === "text";
       setNoteData({
         x: brushPosition.x,
         y: brushPosition.y,
@@ -86,8 +94,24 @@ function NoteTool({ map, active, onNoteCreate, onNoteMenuOpen }: MapNoteProps) {
         lastModifiedBy: userId,
         visible: true,
         locked: false,
-        color: "yellow",
-        textOnly: false,
+        color: isText ? "white" : "yellow",
+        textOnly: isText,
+        ...(isText
+          ? {
+              content: "",
+              contentFormat: "html",
+              style: {
+                textColor: "white",
+                backgroundMode: "none",
+                fontFamily: "rounded",
+                fontScale: "md",
+                fontSize: 1,
+              },
+            }
+          : {}),
+        ownerId: userId,
+        visibility: "all",
+        textVisible: true,
         rotation: 0,
       });
       if (creatingNoteRef.current) {
@@ -139,11 +163,11 @@ function NoteTool({ map, active, onNoteCreate, onNoteMenuOpen }: MapNoteProps) {
       interactionEmitter?.off("drag", handleBrushMove);
       interactionEmitter?.off("dragEnd", handleBrushUp);
     };
-  });
+  }, [active, interactionEmitter, map, mapStageRef, noteData, snapPositionToGrid, userId, mode]);
 
   return (
     <Group ref={creatingNoteRef}>
-      {noteData && <BlankNote note={noteData} />}
+      {noteData && !noteData.textOnly && <BlankNote note={noteData} />}
     </Group>
   );
 }

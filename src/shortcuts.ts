@@ -60,6 +60,7 @@ const shortcuts: Record<string, Shortcut> = {
   spellTemplateTool: (event) => singleKey(event, "a"),
   measureTool: (event) => singleKey(event, "m"),
   pointerTool: (event) => singleKey(event, "q"),
+  textTool: (event) => singleKey(event, "x"),
   noteTool: (event) => singleKey(event, "n"),
   // Map editor
   gridNudgeUp: ({ key }) => key === "ArrowUp",

@@ -21,6 +21,7 @@ import PointerToolIcon from "../../icons/PointerToolIcon";
 import FullScreenIcon from "../../icons/FullScreenIcon";
 import FullScreenExitIcon from "../../icons/FullScreenExitIcon";
 import NoteToolIcon from "../../icons/NoteToolIcon";
+import TextToolIcon from "../../icons/NoteTextIcon";
 import SelectToolIcon from "../../icons/SelectToolIcon";
 import PasteIcon from "../../icons/PasteIcon";
 import SpellTemplateToolIcon from "../../icons/SpellTemplateToolIcon";
@@ -119,6 +120,7 @@ function MapContols({
     }
     if (!map || !allowNoteEditing) {
       disabled.push("note");
+      disabled.push("text");
     }
     if (!map || mapActions.actionIndex < 0) {
       disabled.push("undo");
@@ -199,6 +201,11 @@ function MapContols({
       title: "Pointer Tool (Q)",
       SettingsComponent: PointerToolSettings,
     },
+    text: {
+      id: "text",
+      icon: <TextToolIcon />,
+      title: "Text Tool (X)",
+    },
     note: {
       id: "note",
       icon: <NoteToolIcon />,
@@ -213,6 +220,7 @@ function MapContols({
     "spellTemplates",
     "measure",
     "pointer",
+    "text",
     "note",
   ];
 
@@ -426,6 +434,9 @@ function MapContols({
     }
     if (shortcuts.pointerTool(event) && !disabledControls.includes("pointer")) {
       onSelectedToolChange("pointer");
+    }
+    if (shortcuts.textTool(event) && !disabledControls.includes("text")) {
+      onSelectedToolChange("text");
     }
     if (shortcuts.noteTool(event) && !disabledControls.includes("note")) {
       onSelectedToolChange("note");

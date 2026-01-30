@@ -10,6 +10,7 @@ export type MapToolId =
   | "spellTemplates"
   | "measure"
   | "pointer"
+  | "text"
   | "note"
   | "undo"
   | "redo";

@@ -34,6 +34,58 @@ export const NoteSchema: JSONSchemaType<Note> = {
     visible: {
       type: "boolean",
     },
+    content: {
+      type: "string",
+      nullable: true,
+    },
+    contentFormat: {
+      type: "string",
+      enum: ["plain", "html"],
+      nullable: true,
+    },
+    style: {
+      type: "object",
+      nullable: true,
+      properties: {
+        textColor: {
+          type: "string",
+        },
+        backgroundMode: {
+          type: "string",
+          enum: ["none", "scrim", "frame"],
+        },
+        fontFamily: {
+          type: "string",
+          enum: ["rounded", "serif", "handwritten", "runic"],
+        },
+        fontScale: {
+          type: "string",
+          enum: ["xs", "sm", "md", "lg", "xl", "huge"],
+        },
+        fontSize: {
+          type: "number",
+          nullable: true,
+        },
+      },
+      required: ["textColor", "backgroundMode", "fontFamily", "fontScale"],
+    },
+    ownerId: {
+      type: "string",
+      nullable: true,
+    },
+    visibility: {
+      type: "string",
+      enum: ["all", "gm", "owner"],
+      nullable: true,
+    },
+    textVisible: {
+      type: "boolean",
+      nullable: true,
+    },
+    attachedToTokenId: {
+      type: "string",
+      nullable: true,
+    },
     x: {
       type: "number",
     },

@@ -944,9 +944,38 @@ export const versions: Record<number, VersionCallback> = {
         });
     });
   },
+  // v1.14.0 - Add advanced note fields
+  44(v, onUpgrade) {
+    v.stores({}).upgrade((tx) => {
+      onUpgrade?.(44);
+      return tx
+        .table("states")
+        .toCollection()
+        .modify((state) => {
+          for (let id in state.notes) {
+            const note = state.notes[id];
+            if (note.textVisible === undefined) {
+              note.textVisible = true;
+            }
+            if (!note.visibility) {
+              note.visibility = "all";
+            }
+            if (!note.ownerId && note.lastModifiedBy) {
+              note.ownerId = note.lastModifiedBy;
+            }
+            if (!note.contentFormat) {
+              note.contentFormat = "plain";
+            }
+            if (note.content === undefined) {
+              note.content = note.text;
+            }
+          }
+        });
+    });
+  },
 };
 
-export const latestVersion = 43;
+export const latestVersion = 44;
 
 /**
  * Load versions onto a database up to a specific version number

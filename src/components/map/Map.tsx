@@ -188,14 +188,15 @@ function Map({
     openTokenNote
   );
 
-  const { notes, noteMenu, noteDragOverlay } = useMapNotes(
-    map,
-    mapState,
-    onMapNoteCreate,
-    onMapNoteChange,
-    onMapNoteRemove,
-    selectedToolId
-  );
+  const { notes, noteMenu, noteHud, noteTextOverlay, noteDragOverlay } =
+    useMapNotes(
+      map,
+      mapState,
+      onMapNoteCreate,
+      onMapNoteChange,
+      onMapNoteRemove,
+      selectedToolId
+    );
 
   const { selectionTool, selectionMenu, selectionDragOverlay } =
     useMapSelection(
@@ -232,6 +233,8 @@ function Map({
             />
             {tokenMenu}
             {noteMenu}
+            {noteHud}
+            {noteTextOverlay}
             {selectionMenu}
             {tokenNotePopover}
             {tokenNoteSheet}

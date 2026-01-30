@@ -27,7 +27,11 @@ type TransformerProps = {
   onTransformEnd?: CustomTransformEventHandler;
   gridScale: string;
   portalSelector: string;
+  enabledAnchors?: string[];
+  resizeEnabled?: boolean;
 };
+
+const DEFAULT_ENABLED_ANCHORS = ["middle-left", "middle-right"];
 
 export class CustomTransformer extends Konva.Transformer {
   attachments: Konva.Node[] = [];
@@ -211,6 +215,8 @@ function Transformer({
   onTransformEnd,
   gridScale,
   portalSelector,
+  enabledAnchors,
+  resizeEnabled,
 }: TransformerProps) {
   const setPreventMapInteraction = useSetPreventMapInteraction();
 
@@ -230,6 +236,8 @@ function Transformer({
 
   const mapStageRef = useMapStage();
   const transformerRef = useRef<CustomTransformer | null>(null);
+  const resolvedAnchors = enabledAnchors ?? DEFAULT_ENABLED_ANCHORS;
+  const resolvedResizeEnabled = resizeEnabled ?? true;
 
   useEffect(() => {
     let transformer = transformerRef.current;
@@ -238,7 +246,8 @@ function Transformer({
       transformer = new CustomTransformer({
         centeredScaling: true,
         rotateAnchorOffset: 16,
-        enabledAnchors: ["middle-left", "middle-right"],
+        enabledAnchors: resolvedAnchors,
+        resizeEnabled: resolvedResizeEnabled,
         flipEnabled: false,
         ignoreStroke: true,
         borderStroke: "invisible",
@@ -260,7 +269,35 @@ function Transformer({
         transformerRef.current = null;
       }
     };
-  }, [mapStageRef, portalSelector, active]);
+  }, [mapStageRef, portalSelector, active, resolvedAnchors, resolvedResizeEnabled]);
+
+  useEffect(() => {
+    const transformer = transformerRef.current;
+    if (active && transformer) {
+      transformer.enabledAnchors(resolvedAnchors);
+      transformer.resizeEnabled(resolvedResizeEnabled);
+      transformer.getLayer()?.batchDraw();
+    }
+  }, [active, resolvedAnchors, resolvedResizeEnabled]);
+
+  useEffect(() => {
+    const transformer = transformerRef.current;
+    if (!active || !transformer) {
+      return;
+    }
+    function handlePointerDown() {
+      setPreventMapInteraction(true);
+    }
+    function handlePointerUp() {
+      setPreventMapInteraction(false);
+    }
+    transformer.on("mousedown touchstart", handlePointerDown);
+    transformer.on("mouseup touchend", handlePointerUp);
+    return () => {
+      transformer.off("mousedown touchstart", handlePointerDown);
+      transformer.off("mouseup touchend", handlePointerUp);
+    };
+  }, [active, setPreventMapInteraction]);
 
   useEffect(() => {
     transformerRef.current?.boundBoxFunc((oldBox, newBox) => {
@@ -467,23 +504,29 @@ function Transformer({
       const middleRight = transformer.findOne<Konva.Rect>(".middle-right");
       const rotater = transformer.findOne<Konva.Rect>(".rotater");
 
-      middleLeft.fillPriority("pattern");
-      middleLeft.fillPatternImage(anchorScale);
-      middleLeft.strokeEnabled(false);
-      middleLeft.fillPatternScaleX(-0.5);
-      middleLeft.fillPatternScaleY(0.5);
+      if (middleLeft) {
+        middleLeft.fillPriority("pattern");
+        middleLeft.fillPatternImage(anchorScale);
+        middleLeft.strokeEnabled(false);
+        middleLeft.fillPatternScaleX(-0.5);
+        middleLeft.fillPatternScaleY(0.5);
+      }
 
-      middleRight.fillPriority("pattern");
-      middleRight.fillPatternImage(anchorScale);
-      middleRight.strokeEnabled(false);
-      middleRight.fillPatternScaleX(0.5);
-      middleRight.fillPatternScaleY(0.5);
+      if (middleRight) {
+        middleRight.fillPriority("pattern");
+        middleRight.fillPatternImage(anchorScale);
+        middleRight.strokeEnabled(false);
+        middleRight.fillPatternScaleX(0.5);
+        middleRight.fillPatternScaleY(0.5);
+      }
 
-      rotater.fillPriority("pattern");
-      rotater.fillPatternImage(anchorRotate);
-      rotater.strokeEnabled(false);
-      rotater.fillPatternScaleX(0.5);
-      rotater.fillPatternScaleY(0.5);
+      if (rotater) {
+        rotater.fillPriority("pattern");
+        rotater.fillPatternImage(anchorRotate);
+        rotater.strokeEnabled(false);
+        rotater.fillPatternScaleX(0.5);
+        rotater.fillPatternScaleY(0.5);
+      }
 
       transformer.getLayer()?.batchDraw();
     }
@@ -495,6 +538,7 @@ function Transformer({
     anchorRotate,
     anchorScaleStatus,
     anchorRotateStatus,
+    resolvedAnchors,
   ]);
 
   return null;
