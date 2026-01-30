@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Box, Input, Flex, Text, IconButton } from "theme-ui";
+import React, { useEffect, useState, useRef } from "react";
+import { Box, Input, Flex, Text, IconButton, Checkbox, Label } from "theme-ui";
 import Konva from "konva";
 
 import MapMenu from "../map/MapMenu";
@@ -18,6 +18,7 @@ import TokenMountIcon from "../../icons/TokenMountIcon";
 import TokenAttachmentIcon from "../../icons/TokenAttachmentIcon";
 import TokenShowIcon from "../../icons/TokenShowIcon";
 import TokenHideIcon from "../../icons/TokenHideIcon";
+import ExpandMoreIcon from "../../icons/ExpandMoreIcon";
 
 import { useUserId } from "../../contexts/UserIdContext";
 
@@ -63,6 +64,7 @@ type TokenMenuProps = {
   focus: boolean;
   onTokenStateChange: TokenStateChangeEventHandler;
   map: Map | null;
+  fogEnabled?: boolean;
 };
 
 function TokenMenu({
@@ -73,6 +75,7 @@ function TokenMenu({
   focus,
   onTokenStateChange,
   map,
+  fogEnabled = true,
 }: TokenMenuProps) {
   const userId = useUserId();
 
@@ -80,8 +83,15 @@ function TokenMenu({
 
   const [menuLeft, setMenuLeft] = useState(0);
   const [menuTop, setMenuTop] = useState(0);
+  const [visionLightOpen, setVisionLightOpen] = useState(false);
+  const sidePanelRef = useRef<HTMLDivElement | null>(null);
+  const [sidePanelStyle, setSidePanelStyle] = useState<{
+    left?: string | number;
+    top?: number;
+  }>({});
   useEffect(() => {
     if (isOpen && !wasOpen && tokenState) {
+      setVisionLightOpen(false);
       // Update menu position
       if (tokenImage) {
         const imageRect = tokenImage.getClientRect();
@@ -98,6 +108,39 @@ function TokenMenu({
       }
     }
   }, [isOpen, tokenState, wasOpen, tokenImage]);
+  useEffect(() => {
+    if (!fogEnabled && visionLightOpen) {
+      setVisionLightOpen(false);
+    }
+  }, [fogEnabled, visionLightOpen]);
+
+  useEffect(() => {
+    if (!visionLightOpen) {
+      return;
+    }
+    const panel = sidePanelRef.current;
+    const panelWidth = 180;
+    const panelGap = 8;
+    const menuWidth = 156;
+    const rightSpace = window.innerWidth - (menuLeft + menuWidth);
+    const placeRight = rightSpace >= panelWidth + panelGap;
+    let top = 0;
+    if (panel) {
+      const rect = panel.getBoundingClientRect();
+      const desiredTop = menuTop;
+      const maxTop = window.innerHeight - rect.height - 8;
+      const clampedTop = Math.min(Math.max(desiredTop, 8), Math.max(8, maxTop));
+      top = clampedTop - menuTop;
+    }
+    if (placeRight) {
+      setSidePanelStyle({ left: `calc(100% + ${panelGap}px)`, top });
+    } else {
+      const desiredLeft = -(panelWidth + panelGap);
+      const minLeft = -(menuLeft - 8);
+      const left = Math.max(desiredLeft, minLeft);
+      setSidePanelStyle({ left, top });
+    }
+  }, [visionLightOpen, menuLeft, menuTop]);
 
   function handleLabelChange(event: React.ChangeEvent<HTMLInputElement>) {
     const label = event.target.value.substring(0, 48);
@@ -240,9 +283,10 @@ function TokenMenu({
       onRequestClose={onRequestClose}
       top={`${menuTop}px`}
       left={`${menuLeft}px`}
+      style={{ overflow: "visible" }}
       onModalContent={handleModalContent}
     >
-      <Box sx={{ width: "156px", overflow: "hidden" }} p={1}>
+      <Box sx={{ width: "156px", overflow: "visible" }} p={1}>
         <Flex
           as="form"
           onSubmit={(e) => {
@@ -324,13 +368,19 @@ function TokenMenu({
               >
                 {tokenState.visible ? <ShowIcon /> : <HideIcon />}
               </IconButton>
-              <IconButton
-                onClick={handleVisionChange}
-                title={tokenState.hasVision ? "Disable Vision" : "Enable Vision"}
-                aria-label={tokenState.hasVision ? "Disable Vision" : "Enable Vision"}
-              >
-                {tokenState.hasVision ? <TokenShowIcon /> : <TokenHideIcon />}
-              </IconButton>
+              {fogEnabled && (
+                <IconButton
+                  onClick={handleVisionChange}
+                  title={
+                    tokenState.hasVision ? "Disable Vision" : "Enable Vision"
+                  }
+                  aria-label={
+                    tokenState.hasVision ? "Disable Vision" : "Enable Vision"
+                  }
+                >
+                  {tokenState.hasVision ? <TokenShowIcon /> : <TokenHideIcon />}
+                </IconButton>
+              )}
               <IconButton
                 onClick={handleLockChange}
                 title={tokenState.locked ? "Unlock Token" : "Lock Token"}
@@ -346,81 +396,119 @@ function TokenMenu({
                 {tokenCategories[tokenState.category].icon}
               </IconButton>
             </Flex>
-            <Box mt={2}>
-              <Text as="label" variant="body2">
-                Vision
-              </Text>
-              <Flex sx={{ alignItems: "center", mt: 1 }}>
-                <Text variant="body2" sx={{ width: "54px" }}>
-                  Range
-                </Text>
-                <Input
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={visionRange}
-                  onChange={(e) =>
-                    tokenState &&
-                    onTokenStateChange({
-                      [tokenState.id]: {
-                        visionRange: parseFloat(e.target.value) || 0,
-                      },
-                    })
-                  }
-                  sx={{ width: "56px", px: 1, py: "2px" }}
-                />
-                <Text variant="body2" sx={{ ml: 1 }}>
-                  cells
-                </Text>
-              </Flex>
-            </Box>
-            <Box mt={2}>
-              <Text as="label" variant="body2">
-                Light
-              </Text>
-              <Flex sx={{ alignItems: "center", mt: 1 }}>
-                <Input
-                  type="checkbox"
-                  checked={lightEnabled}
-                  onChange={(e) => handleLightToggle(e.target.checked)}
-                />
-                <Text variant="body2" sx={{ ml: 2, mr: 1 }}>
-                  Bright
-                </Text>
-                <Input
-                  type="number"
-                  value={lightRadiusBright}
-                  min={0}
-                  step={1}
-                  onChange={(e) =>
-                    handleLightChange({
-                      radiusBright: parseFloat(e.target.value) || 0,
-                    })
-                  }
-                  sx={{ width: "56px", px: 1, py: "2px" }}
-                />
-                <Text variant="body2" sx={{ ml: 2, mr: 1 }}>
-                  Dim
-                </Text>
-                <Input
-                  type="number"
-                  value={lightRadiusDim}
-                  min={0}
-                  step={1}
-                  onChange={(e) =>
-                    handleLightChange({ radiusDim: parseFloat(e.target.value) || 0 })
-                  }
-                  sx={{ width: "56px", px: 1, py: "2px" }}
-                />
-                <Input
-                  type="color"
-                  value={lightColor}
-                  onChange={(e) => handleLightChange({ color: e.target.value })}
-                  sx={{ ml: 2, width: "28px", height: "24px", p: 0 }}
-                />
-              </Flex>
-            </Box>
+            {fogEnabled && (
+              <Box mt={2} sx={{ position: "relative" }}>
+                <Flex
+                  sx={{
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Text as="label" variant="body2">
+                    Vision & Light
+                  </Text>
+                  <IconButton
+                    aria-label="Toggle Vision and Light"
+                    title="Toggle Vision and Light"
+                    onClick={() => setVisionLightOpen((prev) => !prev)}
+                    sx={{
+                      transform: visionLightOpen ? "rotate(180deg)" : "none",
+                    }}
+                  >
+                    <ExpandMoreIcon />
+                  </IconButton>
+                </Flex>
+              </Box>
+            )}
           </>
+        )}
+        {fogEnabled && visionLightOpen && (
+          <Box
+            ref={sidePanelRef}
+            sx={{
+              position: "absolute",
+              top: sidePanelStyle.top ?? 0,
+              left: sidePanelStyle.left ?? "calc(100% + 8px)",
+              width: "180px",
+              backgroundColor: "overlay",
+              borderRadius: "4px",
+              zIndex: 1,
+            }}
+            p={2}
+          >
+            <Text as="label" variant="body2">
+              Vision
+            </Text>
+            <Text variant="body2" sx={{ opacity: 0.8, mt: 1 }}>
+              Range (cells)
+            </Text>
+            <Input
+              type="number"
+              min={0}
+              step={1}
+              value={visionRange}
+              onChange={(e) =>
+                tokenState &&
+                onTokenStateChange({
+                  [tokenState.id]: {
+                    visionRange: parseFloat(e.target.value) || 0,
+                  },
+                })
+              }
+              sx={{ width: "100%", px: 1, py: "2px", mt: 1 }}
+            />
+            <Text as="label" variant="body2" sx={{ mt: 2 }}>
+              Light
+            </Text>
+            <Label sx={{ display: "flex", alignItems: "center", mt: 1 }}>
+              <Checkbox
+                checked={lightEnabled}
+                onChange={(e) => handleLightToggle(e.target.checked)}
+              />
+              <Text variant="body2" sx={{ ml: 2 }}>
+                Enable
+              </Text>
+            </Label>
+            <Text variant="body2" sx={{ opacity: 0.8, mt: 1 }}>
+              Color
+            </Text>
+            <Input
+              type="color"
+              value={lightColor}
+              onChange={(e) => handleLightChange({ color: e.target.value })}
+              sx={{ width: "100%", height: "24px", p: 0, mt: 1 }}
+            />
+            <Text variant="body2" sx={{ opacity: 0.8, mt: 1 }}>
+              Bright
+            </Text>
+            <Input
+              type="number"
+              value={lightRadiusBright}
+              min={0}
+              step={1}
+              onChange={(e) =>
+                handleLightChange({
+                  radiusBright: parseFloat(e.target.value) || 0,
+                })
+              }
+              sx={{ width: "100%", px: 1, py: "2px", mt: 1 }}
+            />
+            <Text variant="body2" sx={{ opacity: 0.8, mt: 1 }}>
+              Dim
+            </Text>
+            <Input
+              type="number"
+              value={lightRadiusDim}
+              min={0}
+              step={1}
+              onChange={(e) =>
+                handleLightChange({
+                  radiusDim: parseFloat(e.target.value) || 0,
+                })
+              }
+              sx={{ width: "100%", px: 1, py: "2px", mt: 1 }}
+            />
+          </Box>
         )}
       </Box>
     </MapMenu>

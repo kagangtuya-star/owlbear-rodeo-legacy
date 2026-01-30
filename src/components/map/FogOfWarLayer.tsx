@@ -25,6 +25,11 @@ type FogOfWarLayerProps = {
   onExploredChange?: (explored: number[][][][]) => void;
 };
 
+type LightPolygon = {
+  polygon: Polygon;
+  color: string;
+};
+
 function wallToSegments(wall: Wall): Segment[] {
   const segments: Segment[] = [];
   for (let i = 0; i < wall.points.length - 1; i++) {
@@ -122,6 +127,7 @@ function FogOfWarLayer({
           typeof token.lightConfig?.radiusDim === "number"
             ? token.lightConfig.radiusDim
             : 0,
+        color: token.lightConfig?.color || "#ffffff",
       }));
   }, [mapState?.tokens]);
 
@@ -159,7 +165,7 @@ function FogOfWarLayer({
     return polygons;
   }, [fogEnabled, gridCellNormalizedSize, visionSources, wallSegments]);
 
-  const lightBrightPolygons = useMemo(() => {
+  const lightBrightPolygons = useMemo<LightPolygon[]>(() => {
     if (!fogEnabled) {
       return [];
     }
@@ -172,7 +178,7 @@ function FogOfWarLayer({
     }
     const viewportMin: Point = [0, 0];
     const viewportMax: Point = [1, 1];
-    const polygons: Polygon[] = [];
+    const polygons: LightPolygon[] = [];
     for (let source of lightSources) {
       const radius = source.bright * unit;
       if (radius <= 0) {
@@ -187,13 +193,13 @@ function FogOfWarLayer({
         viewportMax
       );
       if (poly.length > 2) {
-        polygons.push(poly);
+        polygons.push({ polygon: poly, color: source.color });
       }
     }
     return polygons;
   }, [fogEnabled, gridCellNormalizedSize, lightSources, wallSegments]);
 
-  const lightDimPolygons = useMemo(() => {
+  const lightDimPolygons = useMemo<LightPolygon[]>(() => {
     if (!fogEnabled) {
       return [];
     }
@@ -206,7 +212,7 @@ function FogOfWarLayer({
     }
     const viewportMin: Point = [0, 0];
     const viewportMax: Point = [1, 1];
-    const polygons: Polygon[] = [];
+    const polygons: LightPolygon[] = [];
     for (let source of lightSources) {
       const radius = Math.max(source.dim, source.bright) * unit;
       if (radius <= 0 || source.dim <= source.bright) {
@@ -221,7 +227,7 @@ function FogOfWarLayer({
         viewportMax
       );
       if (poly.length > 2) {
-        polygons.push(poly);
+        polygons.push({ polygon: poly, color: source.color });
       }
     }
     return polygons;
@@ -299,7 +305,7 @@ function FogOfWarLayer({
           globalCompositeOperation="destination-out"
         />
       ))}
-      {lightDimPolygons.map((polygon, index) => (
+      {lightDimPolygons.map(({ polygon }, index) => (
         <Line
           key={`light-dim-${index}`}
           points={polygonToPoints(polygon, mapWidth, mapHeight)}
@@ -309,7 +315,7 @@ function FogOfWarLayer({
           globalCompositeOperation="destination-out"
         />
       ))}
-      {lightBrightPolygons.map((polygon, index) => (
+      {lightBrightPolygons.map(({ polygon }, index) => (
         <Line
           key={`light-bright-${index}`}
           points={polygonToPoints(polygon, mapWidth, mapHeight)}
@@ -327,6 +333,26 @@ function FogOfWarLayer({
           fill="black"
           stroke={undefined}
           globalCompositeOperation="destination-out"
+        />
+      ))}
+      {lightDimPolygons.map(({ polygon, color }, index) => (
+        <Line
+          key={`light-dim-tint-${index}`}
+          points={polygonToPoints(polygon, mapWidth, mapHeight)}
+          closed
+          fill={color}
+          stroke={undefined}
+          opacity={0.12}
+        />
+      ))}
+      {lightBrightPolygons.map(({ polygon, color }, index) => (
+        <Line
+          key={`light-bright-tint-${index}`}
+          points={polygonToPoints(polygon, mapWidth, mapHeight)}
+          closed
+          fill={color}
+          stroke={undefined}
+          opacity={0.22}
         />
       ))}
     </Group>

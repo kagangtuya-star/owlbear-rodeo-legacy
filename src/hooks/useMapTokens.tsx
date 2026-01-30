@@ -214,6 +214,7 @@ function useMapTokens(
       focus={tokenMenuOptions?.focus}
       tokenImage={tokenMenuOptions?.tokenImage}
       map={map}
+      fogEnabled={mapState?.fogEnabled ?? true}
     />
   );
 
