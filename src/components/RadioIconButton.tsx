@@ -10,6 +10,7 @@ function RadioIconButton({
   isSelected,
   disabled,
   children,
+  sx,
   ...props
 }: RadioButttonProps) {
   return (
@@ -17,7 +18,7 @@ function RadioIconButton({
       aria-label={title}
       title={title}
       onClick={onClick}
-      sx={{ color: isSelected ? "primary" : "text" }}
+      sx={{ color: isSelected ? "primary" : "text", ...(sx || {}) }}
       disabled={disabled}
       {...props}
     >

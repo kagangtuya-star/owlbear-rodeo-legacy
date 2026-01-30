@@ -12,6 +12,9 @@ function loadVersions(settings: Settings) {
       color: "red",
       type: "brush",
       useBlending: true,
+      opacity: 1,
+      strokeWidth: 1,
+      dashStyle: "solid",
     },
     measure: {
       type: "chebyshev",
@@ -110,6 +113,24 @@ function loadVersions(settings: Settings) {
       fontSize: "md",
       defaultFont: "default",
       defaultPermission: "write",
+    },
+  }));
+  // v1.14.0 - Add drawing opacity/stroke width/dash style
+  settings.version(13, (prev: any) => ({
+    ...prev,
+    drawing: {
+      ...prev.drawing,
+      opacity:
+        typeof prev?.drawing?.opacity === "number"
+          ? prev.drawing.opacity
+          : prev?.drawing?.useBlending
+          ? 0.5
+          : 1,
+      strokeWidth:
+        typeof prev?.drawing?.strokeWidth === "number"
+          ? prev.drawing.strokeWidth
+          : 1,
+      dashStyle: prev?.drawing?.dashStyle ?? "solid",
     },
   }));
 }

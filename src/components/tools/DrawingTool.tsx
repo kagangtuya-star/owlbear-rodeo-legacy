@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import Konva from "konva";
 import shortid from "shortid";
-import { Group } from "react-konva";
+import { Group, Rect, Line as KonvaLine } from "react-konva";
 
 import {
   useDebouncedStageScale,
@@ -28,22 +29,28 @@ import useGridSnapping from "../../hooks/useGridSnapping";
 
 import DrawingShape from "../konva/Drawing";
 
+import { useKeyboard } from "../../contexts/KeyboardContext";
+import shortcuts from "../../shortcuts";
+
 import { Map } from "../../types/Map";
 import {
   Drawing,
   DrawingToolSettings,
   drawingToolIsShape,
   Shape,
+  Line,
 } from "../../types/Drawing";
 
 export type DrawingAddEventHanlder = (drawing: Drawing) => void;
 export type DrawingsRemoveEventHandler = (drawingIds: string[]) => void;
+export type DrawingsEditEventHandler = (drawings: Partial<Drawing>[]) => void;
 
 type MapDrawingProps = {
   map: Map | null;
   drawings: Drawing[];
   onDrawingAdd: DrawingAddEventHanlder;
   onDrawingsRemove: DrawingsRemoveEventHandler;
+  onDrawingsEdit: DrawingsEditEventHandler;
   active: boolean;
   toolSettings: DrawingToolSettings;
 };
@@ -53,6 +60,7 @@ function DrawingTool({
   drawings,
   onDrawingAdd: onShapeAdd,
   onDrawingsRemove: onShapesRemove,
+  onDrawingsEdit: onShapesEdit,
   active,
   toolSettings,
 }: MapDrawingProps) {
@@ -66,11 +74,14 @@ function DrawingTool({
 
   const mapStageRef = useMapStage();
   const [drawing, setDrawing] = useState<Drawing | null>(null);
+  const [penDrawing, setPenDrawing] = useState<Line | null>(null);
   const [isBrushDown, setIsBrushDown] = useState(false);
   const [erasingDrawings, setErasingDrawings] = useState<Drawing[]>([]);
 
   const shouldHover = toolSettings.type === "erase" && active;
 
+  const isPen = toolSettings.type === "pen";
+  const isDrag = toolSettings.type === "drag";
   const isBrush =
     toolSettings.type === "brush" || toolSettings.type === "paint";
   const isShape =
@@ -81,28 +92,31 @@ function DrawingTool({
 
   const snapPositionToGrid = useGridSnapping();
 
-  useEffect(() => {
-    if (!active) {
+  const getBrushPosition = useCallback(() => {
+    const mapStage = mapStageRef.current;
+    if (!mapStage || !map) {
       return;
     }
-    const mapStage = mapStageRef.current;
+    const mapImage = mapStage.findOne("#mapImage");
+    let position = getRelativePointerPosition(mapImage);
+    if (!position) {
+      return;
+    }
+    if (map.snapToGrid && (isShape || isPen)) {
+      position = snapPositionToGrid(position);
+    }
+    return Vector2.divide(position, {
+      x: mapImage.width(),
+      y: mapImage.height(),
+    });
+  }, [mapStageRef, map, isShape, isPen, snapPositionToGrid]);
 
-    function getBrushPosition() {
-      if (!mapStage || !map) {
-        return;
-      }
-      const mapImage = mapStage.findOne("#mapImage");
-      let position = getRelativePointerPosition(mapImage);
-      if (!position) {
-        return;
-      }
-      if (map.snapToGrid && isShape) {
-        position = snapPositionToGrid(position);
-      }
-      return Vector2.divide(position, {
-        x: mapImage.width(),
-        y: mapImage.height(),
-      });
+  useEffect(() => {
+    if (!active || isDrag) {
+      return;
+    }
+    if (isPen) {
+      return;
     }
 
     function handleBrushDown(props: MapDragEvent) {
@@ -116,6 +130,13 @@ function DrawingTool({
       const commonShapeData = {
         color: toolSettings.color,
         blend: toolSettings.useBlending,
+        opacity:
+          typeof toolSettings.opacity === "number"
+            ? toolSettings.opacity
+            : toolSettings.useBlending
+            ? 0.5
+            : 1,
+        dashStyle: toolSettings.dashStyle,
         id: shortid.generate(),
       };
       const type = toolSettings.type;
@@ -124,7 +145,12 @@ function DrawingTool({
           type: "path",
           pathType: type === "brush" ? "stroke" : "fill",
           data: { points: [brushPosition] },
-          strokeWidth: type === "brush" ? 1 : 0,
+          strokeWidth:
+            type === "brush"
+              ? typeof toolSettings.strokeWidth === "number"
+                ? toolSettings.strokeWidth
+                : 1
+              : 0,
           ...commonShapeData,
         });
       } else if (isShape && drawingToolIsShape(type)) {
@@ -133,7 +159,11 @@ function DrawingTool({
           shapeType: type,
           data: getDefaultShapeData(type, brushPosition),
           strokeWidth:
-            toolSettings.type === "line" || !toolSettings.useShapeFill ? 1 : 0,
+            toolSettings.type === "line" || !toolSettings.useShapeFill
+              ? typeof toolSettings.strokeWidth === "number"
+                ? toolSettings.strokeWidth
+                : 1
+              : 0,
           ...commonShapeData,
         } as Shape);
       }
@@ -223,6 +253,146 @@ function DrawingTool({
     };
   });
 
+  const removeLastPenPoint = useCallback(() => {
+    setPenDrawing((prevShape) => {
+      if (!prevShape) {
+        return prevShape;
+      }
+      if (prevShape.data.points.length > 2) {
+        return {
+          ...prevShape,
+          data: {
+            ...prevShape.data,
+            points: [
+              ...prevShape.data.points.slice(0, -2),
+              ...prevShape.data.points.slice(-1),
+            ],
+          },
+        };
+      }
+      return null;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!active || !isPen || isDrag) {
+      if (penDrawing) {
+        setPenDrawing(null);
+      }
+      return;
+    }
+    const mapStage = mapStageRef.current;
+    if (!mapStage) {
+      return;
+    }
+
+    function handlePointerMove() {
+      if (!penDrawing) {
+        return;
+      }
+      const brushPosition = getBrushPosition();
+      if (!brushPosition) {
+        return;
+      }
+      setPenDrawing((prevShape) => {
+        if (!prevShape) {
+          return prevShape;
+        }
+        return {
+          ...prevShape,
+          data: {
+            ...prevShape.data,
+            points: [
+              ...prevShape.data.points.slice(0, -1),
+              brushPosition,
+            ],
+          },
+        };
+      });
+    }
+
+    function handlePointerClick() {
+      const brushPosition = getBrushPosition();
+      if (!brushPosition) {
+        return;
+      }
+      setPenDrawing((prevShape) => {
+        if (!prevShape) {
+          return {
+            type: "shape",
+            shapeType: "line",
+            data: { points: [brushPosition, brushPosition] },
+            strokeWidth:
+              typeof toolSettings.strokeWidth === "number"
+                ? toolSettings.strokeWidth
+                : 1,
+            color: toolSettings.color,
+            blend: toolSettings.useBlending,
+            opacity:
+              typeof toolSettings.opacity === "number"
+                ? toolSettings.opacity
+                : toolSettings.useBlending
+                ? 0.5
+                : 1,
+            dashStyle: toolSettings.dashStyle,
+            id: shortid.generate(),
+          };
+        }
+        return {
+          ...prevShape,
+          data: {
+            ...prevShape.data,
+            points: [
+              ...prevShape.data.points.slice(0, -1),
+              brushPosition,
+              brushPosition,
+            ],
+          },
+        };
+      });
+    }
+
+    mapStage.on("mousemove touchmove", handlePointerMove);
+    mapStage.on("click tap", handlePointerClick);
+
+    return () => {
+      mapStage.off("mousemove touchmove", handlePointerMove);
+      mapStage.off("click tap", handlePointerClick);
+    };
+  });
+
+  const finishPenDrawing = useCallback(() => {
+    if (!penDrawing) {
+      return;
+    }
+    const points = penDrawing.data.points.slice(0, -1);
+    if (points.length > 1) {
+      onShapeAdd({
+        ...penDrawing,
+        data: {
+          ...penDrawing.data,
+          points,
+        },
+      });
+    }
+    setPenDrawing(null);
+  }, [penDrawing, onShapeAdd]);
+
+  function handleKeyDown(event: KeyboardEvent) {
+    if (!active || !isPen || !penDrawing) {
+      return;
+    }
+    if (shortcuts.fogFinishPolygon(event)) {
+      finishPenDrawing();
+    } else if (shortcuts.fogCancelPolygon(event)) {
+      setPenDrawing(null);
+    } else if (shortcuts.delete(event)) {
+      removeLastPenPoint();
+    }
+  }
+
+  useKeyboard(handleKeyDown);
+
   function handleShapeOver(shape: Drawing, isDown: boolean) {
     if (shouldHover && isDown) {
       if (erasingDrawings.findIndex((s) => s.id === shape.id) === -1) {
@@ -239,6 +409,76 @@ function DrawingTool({
   }
 
   function renderDrawing(shape: Drawing) {
+    const isDraggingEnabled = active && isDrag;
+    function handleDragEnd(
+      event: Konva.KonvaEventObject<DragEvent>
+    ) {
+      if (!isDraggingEnabled) {
+        return;
+      }
+      const node = event.target;
+      const { x, y } = node.position();
+      if (x === 0 && y === 0) {
+        return;
+      }
+      if (mapWidth === 0 || mapHeight === 0) {
+        return;
+      }
+      const isRect = shape.type === "shape" && shape.shapeType === "rectangle";
+      const isCircle = shape.type === "shape" && shape.shapeType === "circle";
+      const baseX =
+        isRect || isCircle ? shape.data.x * mapWidth : 0;
+      const baseY =
+        isRect || isCircle ? shape.data.y * mapHeight : 0;
+      const dxPx = x - baseX;
+      const dyPx = y - baseY;
+      node.position({ x: baseX, y: baseY });
+      const dx = dxPx / mapWidth;
+      const dy = dyPx / mapHeight;
+      const shiftPoint = (point: Vector2) => ({
+        x: point.x + dx,
+        y: point.y + dy,
+      });
+      let updated: Drawing | null = null;
+      if (shape.type === "path") {
+        updated = {
+          ...shape,
+          data: {
+            points: shape.data.points.map(shiftPoint),
+          },
+        };
+      } else if (shape.type === "shape") {
+        if (shape.shapeType === "rectangle") {
+          updated = {
+            ...shape,
+            data: {
+              ...shape.data,
+              x: shape.data.x + dx,
+              y: shape.data.y + dy,
+            },
+          };
+        } else if (shape.shapeType === "circle") {
+          updated = {
+            ...shape,
+            data: {
+              ...shape.data,
+              x: shape.data.x + dx,
+              y: shape.data.y + dy,
+            },
+          };
+        } else {
+          updated = {
+            ...shape,
+            data: {
+              points: shape.data.points.map(shiftPoint),
+            },
+          };
+        }
+      }
+      if (updated) {
+        onShapesEdit([updated]);
+      }
+    }
     return (
       <DrawingShape
         drawing={shape}
@@ -250,7 +490,107 @@ function DrawingTool({
         onMouseUp={eraseHoveredShapes}
         onTouchEnd={eraseHoveredShapes}
         strokeWidth={gridStrokeWidth * shape.strokeWidth}
+        hitStrokeWidth={Math.max(
+          12 / stageScale,
+          gridStrokeWidth * shape.strokeWidth * 2
+        )}
+        draggable={isDraggingEnabled}
+        onDragEnd={handleDragEnd}
       />
+    );
+  }
+
+  function handlePenFinish(
+    event: Konva.KonvaEventObject<MouseEvent | TouchEvent>
+  ) {
+    event.cancelBubble = true;
+    finishPenDrawing();
+  }
+
+  function handlePenUndo(
+    event: Konva.KonvaEventObject<MouseEvent | TouchEvent>
+  ) {
+    event.cancelBubble = true;
+    removeLastPenPoint();
+  }
+
+  function renderPenControls() {
+    if (!penDrawing) {
+      return null;
+    }
+    const start = penDrawing.data.points[0];
+    if (!start) {
+      return null;
+    }
+    const position = Vector2.multiply(start, {
+      x: mapWidth,
+      y: mapHeight,
+    });
+    const controlSize = 22 / stageScale;
+    const gap = 6 / stageScale;
+    const offset = 12 / stageScale;
+    const totalWidth = controlSize * 2 + gap;
+    const stroke = Math.max(1, 1 / stageScale);
+    const x = Math.min(
+      Math.max(position.x + offset, 0),
+      mapWidth - totalWidth
+    );
+    const y = Math.min(
+      Math.max(position.y - offset - controlSize, 0),
+      mapHeight - controlSize
+    );
+
+    return (
+      <Group x={x} y={y}>
+        <Group onClick={handlePenFinish} onTap={handlePenFinish}>
+          <Rect
+            width={controlSize}
+            height={controlSize}
+            cornerRadius={controlSize / 4}
+            fill="rgba(0,0,0,0.7)"
+            stroke="white"
+            strokeWidth={stroke}
+          />
+          <KonvaLine
+            points={[
+              controlSize * 0.25,
+              controlSize * 0.55,
+              controlSize * 0.45,
+              controlSize * 0.75,
+              controlSize * 0.75,
+              controlSize * 0.3,
+            ]}
+            stroke="white"
+            strokeWidth={stroke * 2}
+            lineCap="round"
+            lineJoin="round"
+          />
+        </Group>
+        <Group x={controlSize + gap} onClick={handlePenUndo} onTap={handlePenUndo}>
+          <Rect
+            width={controlSize}
+            height={controlSize}
+            cornerRadius={controlSize / 4}
+            fill="rgba(0,0,0,0.7)"
+            stroke="white"
+            strokeWidth={stroke}
+          />
+          <KonvaLine
+            points={[
+              controlSize * 0.7,
+              controlSize * 0.25,
+              controlSize * 0.35,
+              controlSize * 0.5,
+              controlSize * 0.7,
+              controlSize * 0.75,
+            ]}
+            stroke="white"
+            strokeWidth={stroke * 2}
+            lineCap="round"
+            lineJoin="round"
+          />
+        </Group>
+      </Group>
     );
   }
 
@@ -266,6 +606,8 @@ function DrawingTool({
     <Group>
       {drawings.map(renderDrawing)}
       {drawing && renderDrawing(drawing)}
+      {penDrawing && renderDrawing(penDrawing)}
+      {penDrawing && renderPenControls()}
       {erasingDrawings.length > 0 && erasingDrawings.map(renderErasingDrawing)}
     </Group>
   );

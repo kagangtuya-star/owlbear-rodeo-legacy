@@ -14,15 +14,46 @@ type DrawingProps = {
   drawing: DrawingType;
 } & Konva.ShapeConfig;
 
+function getDashArray(
+  dashStyle: DrawingType["dashStyle"],
+  strokeWidth: number
+): number[] | undefined {
+  if (!dashStyle || dashStyle === "solid") {
+    return undefined;
+  }
+  const unit = Math.max(1, strokeWidth);
+  if (dashStyle === "dashed") {
+    return [unit * 4, unit * 2];
+  }
+  if (dashStyle === "dotted") {
+    return [unit, unit * 2];
+  }
+  return undefined;
+}
+
 function Drawing({ drawing, ...props }: DrawingProps) {
   const mapWidth = useMapWidth();
   const mapHeight = useMapHeight();
   const mapSize = new Vector2(mapWidth, mapHeight);
+  const strokeWidth =
+    typeof props.strokeWidth === "number" ? props.strokeWidth : 1;
+  const dash =
+    strokeWidth === 0 ? undefined : getDashArray(drawing.dashStyle, strokeWidth);
+
+  const resolvedColor =
+    drawing.color in colors
+      ? colors[drawing.color as keyof typeof colors]
+      : drawing.color;
 
   const defaultProps = {
-    fill: colors[drawing.color] || drawing.color,
-    stroke: colors[drawing.color] || drawing.color,
-    opacity: drawing.blend ? 0.5 : 1,
+    fill: resolvedColor,
+    stroke: resolvedColor,
+    opacity:
+      typeof drawing.opacity === "number"
+        ? drawing.opacity
+        : drawing.blend
+        ? 0.5
+        : 1,
     id: drawing.id,
   };
 
@@ -50,6 +81,7 @@ function Drawing({ drawing, ...props }: DrawingProps) {
           fillEnabled={props.strokeWidth === 0}
           {...defaultProps}
           {...props}
+          dash={dash}
         />
       );
     } else if (drawing.shapeType === "circle") {
@@ -62,6 +94,7 @@ function Drawing({ drawing, ...props }: DrawingProps) {
           fillEnabled={props.strokeWidth === 0}
           {...defaultProps}
           {...props}
+          dash={dash}
         />
       );
     } else if (drawing.shapeType === "triangle") {
@@ -72,6 +105,7 @@ function Drawing({ drawing, ...props }: DrawingProps) {
           fillEnabled={props.strokeWidth === 0}
           {...defaultProps}
           {...props}
+          dash={dash}
         />
       );
     } else if (drawing.shapeType === "line") {
@@ -81,6 +115,7 @@ function Drawing({ drawing, ...props }: DrawingProps) {
           lineCap="round"
           {...defaultProps}
           {...props}
+          dash={dash}
         />
       );
     }

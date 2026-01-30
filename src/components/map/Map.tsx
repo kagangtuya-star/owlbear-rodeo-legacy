@@ -147,6 +147,10 @@ function Map({
     onMapDraw(new RemoveStatesAction(shapeIds));
   }
 
+  function handleMapShapesEdit(shapes: Partial<Drawing>[]) {
+    onMapDraw(new EditStatesAction(shapes));
+  }
+
   function handleFogShapesAdd(shapes: Fog[]) {
     onFogDraw(new AddStatesAction(shapes));
   }
@@ -301,6 +305,7 @@ function Map({
           drawings={drawShapes}
           onDrawingAdd={handleMapShapeAdd}
           onDrawingsRemove={handleMapShapesRemove}
+          onDrawingsEdit={handleMapShapesEdit}
           active={selectedToolId === "drawing"}
           toolSettings={settings.drawing}
         />

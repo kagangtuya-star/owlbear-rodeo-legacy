@@ -17,7 +17,9 @@ function PointerToolSettings({
     <Flex sx={{ alignItems: "center" }}>
       <ColorControl
         color={settings.color}
-        onColorChange={(color) => onSettingChange({ color })}
+        onColorChange={(color) =>
+          onSettingChange({ color: color as PointerToolSettingsType["color"] })
+        }
         exclude={["black", "darkGray", "lightGray", "white", "primary"]}
       />
     </Flex>

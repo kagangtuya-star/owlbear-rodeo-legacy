@@ -68,8 +68,15 @@ export const DrawingSchema = {
         color: {
           $ref: "color.json",
         },
+        dashStyle: {
+          enum: ["solid", "dashed", "dotted"],
+          type: "string",
+        },
         id: {
           type: "string",
+        },
+        opacity: {
+          type: "number",
         },
         strokeWidth: {
           type: "number",

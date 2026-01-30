@@ -1,6 +1,10 @@
 import Vector2 from "../helpers/Vector2";
 import { Color } from "../helpers/colors";
 
+export type DrawingColor = Color | string;
+
+export type DashStyle = "solid" | "dashed" | "dotted";
+
 export type DrawingToolType =
   | "brush"
   | "paint"
@@ -8,13 +12,18 @@ export type DrawingToolType =
   | "rectangle"
   | "circle"
   | "triangle"
-  | "erase";
+  | "erase"
+  | "pen"
+  | "drag";
 
 export type DrawingToolSettings = {
   type: DrawingToolType;
-  color: Color;
+  color: DrawingColor;
   useBlending: boolean;
   useShapeFill: boolean;
+  opacity: number;
+  strokeWidth: number;
+  dashStyle: DashStyle;
 };
 
 export type PointsData = {
@@ -38,9 +47,11 @@ export type ShapeData = PointsData | RectData | CircleData;
 
 export type BaseDrawing = {
   blend: boolean;
-  color: Color;
+  color: DrawingColor;
   id: string;
   strokeWidth: number;
+  opacity?: number;
+  dashStyle?: DashStyle;
 };
 
 export type BaseShape = BaseDrawing & {

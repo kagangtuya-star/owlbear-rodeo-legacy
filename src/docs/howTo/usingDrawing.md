@@ -7,9 +7,12 @@ A summary of the Drawing Tool options are listed below.
 | Option     | Description                                         |
 | ---------- | --------------------------------------------------- |
 | Color      | Change the color of the drawings                    |
+| Custom     | Pick a custom color                                 |
 | Brush      | Draw free form lines                                |
 | Paint      | Draw free form shapes                               |
 | Line       | Draw a single straight line                         |
+| Pen (Y)    | Click to add points for a continuous line           |
+| Drag       | Move existing drawings                              |
 | Rectangle  | Draw a rectangle                                    |
 | Circle     | Draw a circle                                       |
 | Triangle   | Draw a triangle                                     |
@@ -17,3 +20,6 @@ A summary of the Drawing Tool options are listed below.
 | Erase All  | Erases all drawings on the map                      |
 | Blending   | Enables/Disables alpha blending                     |
 | Shape Fill | Enables/Disables shape fill                         |
+| Opacity    | Adjust drawing transparency                         |
+| Stroke     | Adjust drawing thickness                            |
+| Dash       | Solid/Dash/Dot for line and shape strokes           |

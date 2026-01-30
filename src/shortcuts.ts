@@ -74,6 +74,7 @@ const shortcuts: Record<string, Shortcut> = {
   drawRect: (event) => singleKey(event, "r"),
   drawCircle: (event) => singleKey(event, "c"),
   drawTriangle: (event) => singleKey(event, "t"),
+  drawPen: (event) => singleKey(event, "y"),
   drawErase: (event) => singleKey(event, "e"),
   drawBlend: (event) => singleKey(event, "o"),
   drawFill: (event) => singleKey(event, "g"),

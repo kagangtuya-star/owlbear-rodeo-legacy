@@ -1,26 +1,36 @@
-import Ajv, { JSONSchemaType } from "ajv";
+import Ajv from "ajv";
 import { Color } from "../helpers/colors";
 
 const ajv = new Ajv();
 
-export const ColorSchema: JSONSchemaType<Color> = {
+export type ColorString = Color | string;
+
+export const ColorSchema = {
   $id: "https://www.owlbear.rodeo/schemas/color.json",
-  enum: [
-    "black",
-    "blue",
-    "darkGray",
-    "green",
-    "lightGray",
-    "orange",
-    "pink",
-    "primary",
-    "purple",
-    "red",
-    "teal",
-    "white",
-    "yellow",
+  anyOf: [
+    {
+      enum: [
+        "black",
+        "blue",
+        "darkGray",
+        "green",
+        "lightGray",
+        "orange",
+        "pink",
+        "primary",
+        "purple",
+        "red",
+        "teal",
+        "white",
+        "yellow",
+      ],
+      type: "string",
+    },
+    {
+      type: "string",
+      pattern: "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$",
+    },
   ],
-  type: "string",
 };
 
-export const isColor = ajv.compile<Color>(ColorSchema);
+export const isColor = ajv.compile<ColorString>(ColorSchema);

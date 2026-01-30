@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import { Box, SxProp } from "theme-ui";
+import { Box, SxProp, Input, Label } from "theme-ui";
 
 import colors, { colorOptions, Color } from "../../../helpers/colors";
 import MapMenu from "../../map/MapMenu";
 
 type ColorCircleProps = {
-  color: Color;
+  color: string;
   selected: boolean;
   onClick?: React.MouseEventHandler<HTMLDivElement>;
 } & SxProp;
@@ -17,7 +17,7 @@ function ColorCircle({ color, selected, onClick, sx }: ColorCircleProps) {
       sx={{
         borderRadius: "50%",
         transform: "scale(0.75)",
-        backgroundColor: colors[color],
+        backgroundColor: colors[color as Color] || color,
         cursor: "pointer",
         ...sx,
       }}
@@ -41,12 +41,18 @@ function ColorCircle({ color, selected, onClick, sx }: ColorCircleProps) {
 }
 
 type ColorControlProps = {
-  color: Color;
-  onColorChange: (newColor: Color) => void;
+  color: string;
+  onColorChange: (newColor: string) => void;
   exclude: Color[];
+  allowCustom?: boolean;
 };
 
-function ColorControl({ color, onColorChange, exclude }: ColorControlProps) {
+function ColorControl({
+  color,
+  onColorChange,
+  exclude,
+  allowCustom,
+}: ColorControlProps) {
   const [showColorMenu, setShowColorMenu] = useState(false);
   const [colorMenuOptions, setColorMenuOptions] = useState({});
 
@@ -68,6 +74,9 @@ function ColorControl({ color, onColorChange, exclude }: ColorControlProps) {
     }
   }
 
+  const palette = colorOptions.filter((c) => !exclude.includes(c));
+  const displayColor = colors[color as Color] || color;
+
   const colorMenu = (
     <MapMenu
       isOpen={showColorMenu}
@@ -86,29 +95,42 @@ function ColorControl({ color, onColorChange, exclude }: ColorControlProps) {
         }}
         p={1}
       >
-        {colorOptions
-          .filter((color) => !exclude.includes(color))
-          .map((c) => (
-            <ColorCircle
-              key={c}
-              color={c}
-              selected={c === color}
-              onClick={() => {
-                onColorChange(c);
-                setShowColorMenu(false);
-                setColorMenuOptions({});
-              }}
-              sx={{ width: "25%", paddingTop: "25%" }}
-            />
-          ))}
+        {palette.map((c) => (
+          <ColorCircle
+            key={c}
+            color={colors[c]}
+            selected={c === color}
+            onClick={() => {
+              onColorChange(c);
+              setShowColorMenu(false);
+              setColorMenuOptions({});
+            }}
+            sx={{ width: "25%", paddingTop: "25%" }}
+          />
+        ))}
       </Box>
+      {allowCustom && (
+        <Box px={2} pb={2}>
+          <Label htmlFor="drawing-custom-color">Custom</Label>
+          <Input
+            id="drawing-custom-color"
+            type="color"
+            value={displayColor.startsWith("#") ? displayColor : "#ff4d4d"}
+            onChange={(event) => {
+              onColorChange(event.target.value);
+              setShowColorMenu(false);
+              setColorMenuOptions({});
+            }}
+          />
+        </Box>
+      )}
     </MapMenu>
   );
 
   return (
     <>
       <ColorCircle
-        color={color}
+        color={displayColor}
         selected
         onClick={handleControlClick}
         sx={{ width: "24px", height: "24px" }}
@@ -120,6 +142,7 @@ function ColorControl({ color, onColorChange, exclude }: ColorControlProps) {
 
 ColorControl.defaultProps = {
   exclude: [],
+  allowCustom: false,
 };
 
 export default ColorControl;
