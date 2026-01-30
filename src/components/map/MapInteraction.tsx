@@ -31,6 +31,7 @@ type MapInteractionProps = {
   map: Map | null;
   mapState: MapState | null;
   children?: React.ReactNode;
+  overlay?: React.ReactNode;
   controls: React.ReactNode;
   selectedToolId: MapToolId;
   onSelectedToolChange: SelectedToolChangeEventHanlder;
@@ -40,6 +41,7 @@ function MapInteraction({
   map,
   mapState,
   children,
+  overlay,
   controls,
   selectedToolId,
   onSelectedToolChange,
@@ -65,6 +67,7 @@ function MapInteraction({
   const mapStageRef = useMapStage();
   const mapLayerRef = useRef<Konva.Layer>(null);
   const mapImageRef = useRef<Konva.Image>(null);
+  const overlayLayerRef = useRef<Konva.Layer>(null);
 
   function handleResize(width?: number, height?: number) {
     if (width && height && width > 0 && height > 0) {
@@ -151,6 +154,20 @@ function MapInteraction({
 
   useKeyboard(handleKeyDown, handleKeyUp);
 
+  useEffect(() => {
+    const overlayLayer = overlayLayerRef.current;
+    const mapLayer = mapLayerRef.current;
+    if (!overlayLayer || !mapLayer) {
+      return;
+    }
+    overlayLayer.position(mapLayer.position());
+    overlayLayer.batchDraw();
+    const canvas = overlayLayer.getCanvas()._canvas;
+    if (canvas) {
+      canvas.style.pointerEvents = "none";
+    }
+  }, [mapWidth, mapHeight, map, mapState, stageWidth, stageHeight]);
+
   function getCursorForTool(tool: MapToolId) {
     if (currentMouseButtons === 2) {
       return "crosshair";
@@ -234,6 +251,15 @@ function MapInteraction({
                 {mapLoaded && children}
                 <Group id="portal" />
               </Layer>
+              {overlay ? (
+                <Layer
+                  ref={overlayLayerRef}
+                  listening={false}
+                  hitGraphEnabled={false}
+                >
+                  {overlay}
+                </Layer>
+              ) : null}
             </KonvaBridge>
           </ReactResizeDetector>
           {controls}

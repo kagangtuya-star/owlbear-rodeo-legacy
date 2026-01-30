@@ -7,12 +7,14 @@ import { Notes } from "../types/Note";
 import { TokenNotes } from "../types/TokenNote";
 import { SpellTemplateState } from "../types/SpellTemplate";
 import { TokenStates } from "../types/TokenState";
+import { WallState } from "../types/Wall";
 
 export type DrawingsAction = {
   type: "drawings";
   action: Action<DrawingState>;
 };
 export type FogsAction = { type: "fogs"; action: Action<FogState> };
+export type WallsAction = { type: "walls"; action: Action<WallState> };
 export type TemplatesAction = {
   type: "templates";
   action: Action<SpellTemplateState>;
@@ -27,6 +29,7 @@ export type TokenNotesAction = {
 export type MapAction =
   | DrawingsAction
   | FogsAction
+  | WallsAction
   | TemplatesAction
   | TokensAction
   | NotesAction
@@ -66,11 +69,16 @@ function useMapActions(
     if (!mapState.tokenNotes) {
       mapState.tokenNotes = {};
     }
+    if (!mapState.walls) {
+      mapState.walls = {};
+    }
     for (let mapAction of actions) {
       if (mapAction.type === "drawings") {
         mapState.drawings = mapAction.action.execute(mapState.drawings);
       } else if (mapAction.type === "fogs") {
         mapState.fogs = mapAction.action.execute(mapState.fogs);
+      } else if (mapAction.type === "walls") {
+        mapState.walls = mapAction.action.execute(mapState.walls);
       } else if (mapAction.type === "templates") {
         mapState.templates = mapAction.action.execute(mapState.templates);
       } else if (mapAction.type === "tokens") {
@@ -94,11 +102,16 @@ function useMapActions(
     if (!mapState.tokenNotes) {
       mapState.tokenNotes = {};
     }
+    if (!mapState.walls) {
+      mapState.walls = {};
+    }
     for (let mapAction of actions) {
       if (mapAction.type === "drawings") {
         mapState.drawings = mapAction.action.undo(mapState.drawings);
       } else if (mapAction.type === "fogs") {
         mapState.fogs = mapAction.action.undo(mapState.fogs);
+      } else if (mapAction.type === "walls") {
+        mapState.walls = mapAction.action.undo(mapState.walls);
       } else if (mapAction.type === "templates") {
         mapState.templates = mapAction.action.undo(mapState.templates);
       } else if (mapAction.type === "tokens") {

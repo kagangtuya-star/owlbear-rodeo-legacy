@@ -19,6 +19,16 @@ export const TokenStateSchema = {
       enum: ["character", "prop", "vehicle", "attachment"],
       type: "string",
     },
+    LightConfig: {
+      type: "object",
+      properties: {
+        enabled: { type: "boolean" },
+        radiusBright: { type: "number" },
+        radiusDim: { type: "number" },
+        color: { type: "string" },
+      },
+      required: ["enabled", "radiusBright"],
+    },
     BaseTokenState: {
       properties: {
         category: {
@@ -65,6 +75,18 @@ export const TokenStateSchema = {
         },
         visible: {
           type: "boolean",
+        },
+        hasVision: {
+          type: "boolean",
+        },
+        visionRange: {
+          type: "number",
+        },
+        visionAngle: {
+          type: "number",
+        },
+        lightConfig: {
+          $ref: "#/definitions/LightConfig",
         },
         width: {
           type: "number",

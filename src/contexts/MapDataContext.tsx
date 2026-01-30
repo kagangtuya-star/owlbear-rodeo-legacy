@@ -61,6 +61,9 @@ const defaultMapState: Omit<MapState, "mapId"> = {
   editFlags: ["drawing", "tokens", "notes"],
   notes: {},
   tokenNotes: {},
+  walls: {},
+  explored: [],
+  fogEnabled: true,
 };
 
 export function MapDataProvider({ children }: { children: React.ReactNode }) {

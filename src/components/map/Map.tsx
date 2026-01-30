@@ -1,13 +1,13 @@
 import { useRef, useState } from "react";
 import { Box } from "theme-ui";
-import { useToasts } from "react-toast-notifications";
 
 import MapControls from "./MapControls";
 import MapInteraction from "./MapInteraction";
 import MapGrid from "./MapGrid";
+import FogOfWarLayer from "./FogOfWarLayer";
 
 import DrawingTool from "../tools/DrawingTool";
-import FogTool from "../tools/FogTool";
+import WallTool from "../tools/WallTool";
 import MeasureTool from "../tools/MeasureTool";
 import SpellTemplateTool from "../tools/SpellTemplateTool";
 import NetworkedMapPointer from "../../network/NetworkedMapPointer";
@@ -18,7 +18,6 @@ import { useUserId } from "../../contexts/UserIdContext";
 import Action from "../../actions/Action";
 import {
   AddStatesAction,
-  CutFogAction,
   EditStatesAction,
   RemoveStatesAction,
 } from "../../actions";
@@ -26,7 +25,7 @@ import {
 import Session from "../../network/Session";
 
 import { Drawing, DrawingState } from "../../types/Drawing";
-import { Fog, FogState } from "../../types/Fog";
+import { Wall, WallState } from "../../types/Wall";
 import { Map as MapType, MapToolId } from "../../types/Map";
 import { MapState } from "../../types/MapState";
 import { Settings } from "../../types/Settings";
@@ -35,6 +34,7 @@ import RemoveTokenIcon from "../../icons/RemoveTokenIcon";
 import {
   MapChangeEventHandler,
   MapResetEventHandler,
+  MapStateSettingsChangeEventHandler,
   TokenStateRemoveHandler,
   NoteChangeEventHandler,
   NoteRemoveEventHander,
@@ -67,8 +67,9 @@ type MapProps = {
   onSelectionItemsCreate: SelectionItemsCreateEventHandler;
   onMapChange: MapChangeEventHandler;
   onMapReset: MapResetEventHandler;
+  onMapStateChange: MapStateSettingsChangeEventHandler;
   onMapDraw: (action: Action<DrawingState>) => void;
-  onFogDraw: (action: Action<FogState>) => void;
+  onWallDraw: (action: Action<WallState>) => void;
   onMapTemplateDraw: (action: Action<SpellTemplateState>) => void;
   onMapNoteCreate: NoteCreateEventHander;
   onMapNoteChange: NoteChangeEventHandler;
@@ -94,8 +95,9 @@ function Map({
   onSelectionItemsCreate,
   onMapChange,
   onMapReset,
+  onMapStateChange,
   onMapDraw,
-  onFogDraw,
+  onWallDraw,
   onMapTemplateDraw,
   onMapNoteCreate,
   onMapNoteChange,
@@ -108,8 +110,6 @@ function Map({
   onUndo,
   onRedo,
 }: MapProps) {
-  const { addToast } = useToasts();
-
   const userId = useUserId();
 
   const [selectedToolId, setSelectedToolId] = useState<MapToolId>("move");
@@ -129,13 +129,31 @@ function Map({
   }
 
   const drawShapes = Object.values(mapState?.drawings || {});
-  const fogShapes = Object.values(mapState?.fogs || {});
+  const wallShapes = Object.values(mapState?.walls || {});
   const templateShapes = Object.values(mapState?.templates || {});
   const templateTokens = Object.values(mapState?.tokens || {});
 
   function handleToolAction(action: string) {
     if (action === "eraseAll") {
-      onMapDraw(new RemoveStatesAction(drawShapes.map((s) => s.id)));
+      if (selectedToolId === "drawing") {
+        onMapDraw(new RemoveStatesAction(drawShapes.map((s) => s.id)));
+      } else if (selectedToolId === "fog") {
+        onWallDraw(new RemoveStatesAction(wallShapes.map((s) => s.id)));
+      }
+    } else if (action === "toggleFogEnabled") {
+      onMapStateChange({ fogEnabled: !(mapState?.fogEnabled ?? true) });
+    } else if (action.startsWith("setGmOpacity:")) {
+      const rawValue = parseFloat(action.split(":")[1]);
+      const nextValue = Number.isFinite(rawValue)
+        ? Math.min(Math.max(rawValue, 0), 1)
+        : 0.35;
+      setSettings((prevSettings) => ({
+        ...prevSettings,
+        fog: {
+          ...prevSettings.fog,
+          gmOpacity: nextValue,
+        },
+      }));
     }
   }
 
@@ -151,21 +169,14 @@ function Map({
     onMapDraw(new EditStatesAction(shapes));
   }
 
-  function handleFogShapesAdd(shapes: Fog[]) {
-    onFogDraw(new AddStatesAction(shapes));
+  function handleWallAdd(shapes: Wall[]) {
+    onWallDraw(new AddStatesAction(shapes));
   }
 
-  function handleFogShapesCut(shapes: Fog[]) {
-    onFogDraw(new CutFogAction(shapes));
+  function handleWallRemove(shapeIds: string[]) {
+    onWallDraw(new RemoveStatesAction(shapeIds));
   }
 
-  function handleFogShapesRemove(shapeIds: string[]) {
-    onFogDraw(new RemoveStatesAction(shapeIds));
-  }
-
-  function handleFogShapesEdit(shapes: Partial<Fog>[]) {
-    onFogDraw(new EditStatesAction(shapes));
-  }
 
   function handleTemplateAdd(template: SpellTemplate) {
     onMapTemplateDraw(new AddStatesAction([template]));
@@ -255,6 +266,14 @@ function Map({
       <MapInteraction
         map={map}
         mapState={mapState}
+        overlay={
+          <FogOfWarLayer
+            map={map}
+            mapState={mapState}
+            fogSettings={settings.fog}
+            onExploredChange={(explored) => onMapStateChange({ explored })}
+          />
+        }
         controls={
           <>
             <MapControls
@@ -338,14 +357,11 @@ function Map({
         />
         {notes}
         {tokens}
-        <FogTool
+        <WallTool
           map={map}
-          shapes={fogShapes}
-          onShapesAdd={handleFogShapesAdd}
-          onShapesCut={handleFogShapesCut}
-          onShapesRemove={handleFogShapesRemove}
-          onShapesEdit={handleFogShapesEdit}
-          onShapeError={addToast}
+          walls={wallShapes}
+          onWallsAdd={handleWallAdd}
+          onWallsRemove={handleWallRemove}
           active={selectedToolId === "fog"}
           toolSettings={settings.fog}
           editable={

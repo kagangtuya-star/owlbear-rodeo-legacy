@@ -973,9 +973,51 @@ export const versions: Record<number, VersionCallback> = {
         });
     });
   },
+  // v1.15.0 - Add walls/vision/light/explored and clear legacy fogs
+  45(v, onUpgrade) {
+    v.stores({}).upgrade((tx) => {
+      onUpgrade?.(45);
+      return tx
+        .table("states")
+        .toCollection()
+        .modify((state) => {
+          if (!state.walls) {
+            state.walls = {};
+          }
+          if (!state.explored) {
+            state.explored = [];
+          }
+          if (state.fogEnabled === undefined) {
+            state.fogEnabled = true;
+          }
+          if (state.fogs) {
+            state.fogs = {};
+          }
+          for (let id in state.tokens) {
+            const token = state.tokens[id];
+            if (token.hasVision === undefined) {
+              token.hasVision = false;
+            }
+            if (token.visionRange === undefined) {
+              token.visionRange = 0;
+            }
+            if (token.visionAngle === undefined) {
+              token.visionAngle = 360;
+            }
+            if (!token.lightConfig) {
+              token.lightConfig = {
+                enabled: false,
+                radiusBright: 0,
+                radiusDim: 0,
+              };
+            }
+          }
+        });
+    });
+  },
 };
 
-export const latestVersion = 44;
+export const latestVersion = 45;
 
 /**
  * Load versions onto a database up to a specific version number

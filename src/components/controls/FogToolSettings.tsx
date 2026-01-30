@@ -1,21 +1,21 @@
-import { Flex } from "theme-ui";
+import { Flex, Text } from "theme-ui";
 import { useMedia } from "react-media";
 
 import RadioIconButton from "../RadioIconButton";
 
-import MultilayerToggle from "./shared/MultilayerToggle";
-import FogPreviewToggle from "./shared/FogPreviewToggle";
-import FogCutToggle from "./shared/FogCutToggle";
-
 import FogBrushIcon from "../../icons/FogBrushIcon";
 import FogPolygonIcon from "../../icons/FogPolygonIcon";
 import FogRemoveIcon from "../../icons/FogRemoveIcon";
-import FogToggleIcon from "../../icons/FogToggleIcon";
 import FogRectangleIcon from "../../icons/FogRectangleIcon";
+import FogToggleIcon from "../../icons/FogToggleIcon";
+import FogCutOnIcon from "../../icons/FogCutOnIcon";
+import FogCutOffIcon from "../../icons/FogCutOffIcon";
 
 import ToolSection from "./shared/ToolSection";
 
 import Divider from "../Divider";
+import EraseAllButton from "./shared/EraseAllButton";
+import Slider from "../Slider";
 
 import { useKeyboard } from "../../contexts/KeyboardContext";
 
@@ -29,25 +29,31 @@ import {
 type FogToolSettingsProps = {
   settings: FogToolSettingsType;
   onSettingChange: (change: Partial<FogToolSettingsType>) => void;
+  onToolAction?: (action: string) => void;
+  disabledActions?: string[];
+  fogEnabled?: boolean;
+  showGmOpacity?: boolean;
+  gmOpacity?: number;
 };
 
-function FogToolSettings({ settings, onSettingChange }: FogToolSettingsProps) {
+function FogToolSettings({
+  settings,
+  onSettingChange,
+  onToolAction,
+  disabledActions = [],
+  fogEnabled = true,
+  showGmOpacity = false,
+  gmOpacity = 0.35,
+}: FogToolSettingsProps) {
+  const showExplored = !!settings.showExplored;
   // Keyboard shortcuts
   function handleKeyDown(event: KeyboardEvent) {
     if (shortcuts.fogPolygon(event)) {
       onSettingChange({ type: "polygon" });
     } else if (shortcuts.fogBrush(event)) {
       onSettingChange({ type: "brush" });
-    } else if (shortcuts.fogToggle(event)) {
-      onSettingChange({ type: "toggle" });
     } else if (shortcuts.fogErase(event)) {
       onSettingChange({ type: "remove" });
-    } else if (shortcuts.fogLayer(event)) {
-      onSettingChange({ multilayer: !settings.multilayer });
-    } else if (shortcuts.fogPreview(event)) {
-      onSettingChange({ preview: !settings.preview });
-    } else if (shortcuts.fogCut(event)) {
-      onSettingChange({ useFogCut: !settings.useFogCut });
     } else if (shortcuts.fogRectangle(event)) {
       onSettingChange({ type: "rectangle" });
     }
@@ -59,29 +65,66 @@ function FogToolSettings({ settings, onSettingChange }: FogToolSettingsProps) {
   const drawTools = [
     {
       id: "polygon",
-      title: "Fog Polygon (P)",
+      title: "Wall Pen (P)",
       isSelected: settings.type === "polygon",
       icon: <FogPolygonIcon />,
-      disabled: settings.preview,
     },
     {
       id: "rectangle",
-      title: "Fog Rectangle (R)",
+      title: "Wall Line (R)",
       isSelected: settings.type === "rectangle",
       icon: <FogRectangleIcon />,
-      disabled: settings.preview,
     },
     {
       id: "brush",
-      title: "Fog Brush (B)",
+      title: "Wall Brush (B)",
       isSelected: settings.type === "brush",
       icon: <FogBrushIcon />,
-      disabled: settings.preview,
     },
   ];
 
   return (
     <Flex sx={{ alignItems: "center" }}>
+      <RadioIconButton
+        title={fogEnabled ? "Disable Fog" : "Enable Fog"}
+        onClick={() => onToolAction?.("toggleFogEnabled")}
+        isSelected={fogEnabled}
+      >
+        <FogToggleIcon />
+      </RadioIconButton>
+      <Divider vertical />
+      <RadioIconButton
+        title={showExplored ? "Hide Explored" : "Show Explored"}
+        onClick={() => onSettingChange({ showExplored: !showExplored })}
+        isSelected={showExplored}
+      >
+        {showExplored ? <FogCutOnIcon /> : <FogCutOffIcon />}
+      </RadioIconButton>
+      {showGmOpacity && (
+        <>
+          <Divider vertical />
+          <Flex sx={{ alignItems: "center" }}>
+            <Text variant="body2" sx={{ mr: 2 }}>
+              GM Fog
+            </Text>
+            <Slider
+              min={0}
+              max={1}
+              step={0.05}
+              value={gmOpacity}
+              onChange={(e) =>
+                onToolAction?.(
+                  `setGmOpacity:${parseFloat(e.target.value) || 0}`
+                )
+              }
+              labelFunc={(value) => `${Math.round(value * 100)}%`}
+              ml={2}
+              mr={3}
+            />
+          </Flex>
+        </>
+      )}
+      <Divider vertical />
       <ToolSection
         tools={drawTools}
         onToolClick={(tool) =>
@@ -91,35 +134,16 @@ function FogToolSettings({ settings, onSettingChange }: FogToolSettingsProps) {
       />
       <Divider vertical />
       <RadioIconButton
-        title="Toggle Fog (T)"
-        onClick={() => onSettingChange({ type: "toggle" })}
-        isSelected={settings.type === "toggle"}
-        disabled={settings.preview}
-      >
-        <FogToggleIcon />
-      </RadioIconButton>
-      <RadioIconButton
-        title="Erase Fog (E)"
+        title="Erase Wall (E)"
         onClick={() => onSettingChange({ type: "remove" })}
         isSelected={settings.type === "remove"}
-        disabled={settings.preview}
       >
         <FogRemoveIcon />
       </RadioIconButton>
       <Divider vertical />
-      <FogCutToggle
-        useFogCut={settings.useFogCut}
-        onFogCutChange={(useFogCut) => onSettingChange({ useFogCut })}
-        disabled={settings.preview}
-      />
-      <MultilayerToggle
-        multilayer={settings.multilayer}
-        onMultilayerChange={(multilayer) => onSettingChange({ multilayer })}
-        disabled={settings.preview}
-      />
-      <FogPreviewToggle
-        useFogPreview={settings.preview}
-        onFogPreviewChange={(preview) => onSettingChange({ preview })}
+      <EraseAllButton
+        onToolAction={onToolAction || (() => {})}
+        disabled={disabledActions.includes("eraseAll")}
       />
     </Flex>
   );

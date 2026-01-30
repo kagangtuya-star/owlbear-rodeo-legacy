@@ -2,6 +2,13 @@ import { Color } from "../helpers/colors";
 import { Outline } from "./Outline";
 import { TokenCategory } from "./Token";
 
+export type LightConfig = {
+  enabled: boolean;
+  radiusBright: number;
+  radiusDim?: number;
+  color?: string;
+};
+
 export type BaseTokenState = {
   id: string;
   tokenId: string;
@@ -20,6 +27,10 @@ export type BaseTokenState = {
   outline: Outline;
   width: number;
   height: number;
+  hasVision?: boolean;
+  visionRange?: number;
+  visionAngle?: number;
+  lightConfig?: LightConfig;
 };
 
 export type DefaultTokenState = BaseTokenState & {

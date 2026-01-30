@@ -32,10 +32,11 @@ import {
 } from "../types/Asset";
 import { TokenState } from "../types/TokenState";
 import { DrawingState } from "../types/Drawing";
-import { FogState } from "../types/Fog";
 import { SpellTemplateState } from "../types/SpellTemplate";
 import { Note } from "../types/Note";
 import { TokenNote } from "../types/TokenNote";
+import { WallState } from "../types/Wall";
+import { MapStateSettingsChangeEventHandler } from "../types/Events";
 import {
   AddStatesAction,
   EditStatesAction,
@@ -308,13 +309,22 @@ function NetworkedMapAndTokens({
     addActions([{ type: "drawings", action }]);
   }
 
-  function handleFogDraw(action: Action<FogState>) {
-    addActions([{ type: "fogs", action }]);
+  function handleWallDraw(action: Action<WallState>) {
+    addActions([{ type: "walls", action }]);
   }
 
   function handleTemplateDraw(action: Action<SpellTemplateState>) {
     addActions([{ type: "templates", action }]);
   }
+
+  const handleMapStateChange: MapStateSettingsChangeEventHandler = (change) => {
+    setCurrentMapState((prevState) => {
+      if (!prevState) {
+        return prevState;
+      }
+      return { ...prevState, ...change };
+    });
+  };
 
   function handleUndo() {
     updateActionIndex(-1);
@@ -702,8 +712,9 @@ function NetworkedMapAndTokens({
         onSelectionItemsCreate={handleSelectionItemsCreate}
         onMapChange={handleMapChange}
         onMapReset={handleMapReset}
+        onMapStateChange={handleMapStateChange}
         onMapDraw={handleMapDraw}
-        onFogDraw={handleFogDraw}
+        onWallDraw={handleWallDraw}
         onMapTemplateDraw={handleTemplateDraw}
         onMapNoteCreate={handleNoteCreate}
         onMapNoteChange={handleNoteChange}

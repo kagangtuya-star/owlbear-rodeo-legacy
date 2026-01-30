@@ -133,6 +133,23 @@ function loadVersions(settings: Settings) {
       dashStyle: prev?.drawing?.dashStyle ?? "solid",
     },
   }));
+  // v1.15.0 - Add GM fog opacity
+  settings.version(14, (prev: any) => ({
+    ...prev,
+    fog: {
+      ...prev.fog,
+      gmOpacity:
+        typeof prev?.fog?.gmOpacity === "number" ? prev.fog.gmOpacity : 0.35,
+    },
+  }));
+  // v1.15.1 - Add explored fog toggle
+  settings.version(15, (prev: any) => ({
+    ...prev,
+    fog: {
+      ...prev.fog,
+      showExplored: typeof prev?.fog?.showExplored === "boolean" ? prev.fog.showExplored : false,
+    },
+  }));
 }
 
 export function getSettings() {

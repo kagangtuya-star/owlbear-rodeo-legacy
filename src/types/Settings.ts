@@ -9,6 +9,7 @@ export type DrawingSettings = DrawingToolSettings;
 export type FogSettings = FogToolSettings & {
   editOpacity: number;
   showGuides: boolean;
+  gmOpacity: number;
 };
 export type DiceSettings = {
   shareDice: boolean;

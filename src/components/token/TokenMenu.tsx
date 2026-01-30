@@ -16,6 +16,8 @@ import TokenCharacterIcon from "../../icons/TokenCharacterIcon";
 import TokenPropIcon from "../../icons/TokenPropIcon";
 import TokenMountIcon from "../../icons/TokenMountIcon";
 import TokenAttachmentIcon from "../../icons/TokenAttachmentIcon";
+import TokenShowIcon from "../../icons/TokenShowIcon";
+import TokenHideIcon from "../../icons/TokenHideIcon";
 
 import { useUserId } from "../../contexts/UserIdContext";
 
@@ -124,6 +126,20 @@ function TokenMenu({
       });
   }
 
+  function handleVisionChange() {
+    if (!tokenState) {
+      return;
+    }
+    const nextHasVision = !tokenState.hasVision;
+    const nextRange =
+      nextHasVision && (!tokenState.visionRange || tokenState.visionRange <= 0)
+        ? 6
+        : tokenState.visionRange;
+    onTokenStateChange({
+      [tokenState.id]: { hasVision: nextHasVision, visionRange: nextRange },
+    });
+  }
+
   function handleLockChange() {
     tokenState &&
       onTokenStateChange({
@@ -138,6 +154,56 @@ function TokenMenu({
           category: tokenCategories[tokenState.category].next,
         },
       });
+  }
+
+  const lightEnabled = !!tokenState?.lightConfig?.enabled;
+  const lightRadiusBright =
+    typeof tokenState?.lightConfig?.radiusBright === "number"
+      ? tokenState.lightConfig.radiusBright
+      : 0;
+  const lightRadiusDim =
+    typeof tokenState?.lightConfig?.radiusDim === "number"
+      ? tokenState.lightConfig.radiusDim
+      : 0;
+  const lightColor = tokenState?.lightConfig?.color || "#ffffff";
+  const visionRange =
+    typeof tokenState?.visionRange === "number" ? tokenState.visionRange : 0;
+
+  type LightConfig = NonNullable<TokenState["lightConfig"]>;
+  function handleLightChange(next: Partial<LightConfig>) {
+    if (!tokenState) {
+      return;
+    }
+    onTokenStateChange({
+      [tokenState.id]: {
+        lightConfig: {
+          enabled: lightEnabled,
+          radiusBright: lightRadiusBright,
+          radiusDim: lightRadiusDim,
+          color: lightColor,
+          ...next,
+        },
+      },
+    });
+  }
+
+  function handleLightToggle(enabled: boolean) {
+    if (!tokenState) {
+      return;
+    }
+    const nextBright =
+      lightRadiusBright > 0 ? lightRadiusBright : enabled ? 4 : 0;
+    const nextDim = lightRadiusDim > 0 ? lightRadiusDim : enabled ? 8 : 0;
+    onTokenStateChange({
+      [tokenState.id]: {
+        lightConfig: {
+          enabled,
+          radiusBright: nextBright,
+          radiusDim: nextDim,
+          color: lightColor,
+        },
+      },
+    });
   }
 
   function handleModalContent(node: HTMLElement) {
@@ -249,29 +315,112 @@ function TokenMenu({
         </Box>
         {/* Only show hide and lock token actions to map owners */}
         {map && map.owner === userId && tokenState && (
-          <Flex sx={{ alignItems: "center", justifyContent: "space-around" }}>
-            <IconButton
-              onClick={handleVisibleChange}
-              title={tokenState.visible ? "Hide Token" : "Show Token"}
-              aria-label={tokenState.visible ? "Hide Token" : "Show Token"}
-            >
-              {tokenState.visible ? <ShowIcon /> : <HideIcon />}
-            </IconButton>
-            <IconButton
-              onClick={handleLockChange}
-              title={tokenState.locked ? "Unlock Token" : "Lock Token"}
-              aria-label={tokenState.locked ? "Unlock Token" : "Lock Token"}
-            >
-              {tokenState.locked ? <LockIcon /> : <UnlockIcon />}
-            </IconButton>
-            <IconButton
-              onClick={handleCategoryChange}
-              title={tokenCategories[tokenState.category].title}
-              aria-label={tokenCategories[tokenState.category].title}
-            >
-              {tokenCategories[tokenState.category].icon}
-            </IconButton>
-          </Flex>
+          <>
+            <Flex sx={{ alignItems: "center", justifyContent: "space-around" }}>
+              <IconButton
+                onClick={handleVisibleChange}
+                title={tokenState.visible ? "Hide Token" : "Show Token"}
+                aria-label={tokenState.visible ? "Hide Token" : "Show Token"}
+              >
+                {tokenState.visible ? <ShowIcon /> : <HideIcon />}
+              </IconButton>
+              <IconButton
+                onClick={handleVisionChange}
+                title={tokenState.hasVision ? "Disable Vision" : "Enable Vision"}
+                aria-label={tokenState.hasVision ? "Disable Vision" : "Enable Vision"}
+              >
+                {tokenState.hasVision ? <TokenShowIcon /> : <TokenHideIcon />}
+              </IconButton>
+              <IconButton
+                onClick={handleLockChange}
+                title={tokenState.locked ? "Unlock Token" : "Lock Token"}
+                aria-label={tokenState.locked ? "Unlock Token" : "Lock Token"}
+              >
+                {tokenState.locked ? <LockIcon /> : <UnlockIcon />}
+              </IconButton>
+              <IconButton
+                onClick={handleCategoryChange}
+                title={tokenCategories[tokenState.category].title}
+                aria-label={tokenCategories[tokenState.category].title}
+              >
+                {tokenCategories[tokenState.category].icon}
+              </IconButton>
+            </Flex>
+            <Box mt={2}>
+              <Text as="label" variant="body2">
+                Vision
+              </Text>
+              <Flex sx={{ alignItems: "center", mt: 1 }}>
+                <Text variant="body2" sx={{ width: "54px" }}>
+                  Range
+                </Text>
+                <Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={visionRange}
+                  onChange={(e) =>
+                    tokenState &&
+                    onTokenStateChange({
+                      [tokenState.id]: {
+                        visionRange: parseFloat(e.target.value) || 0,
+                      },
+                    })
+                  }
+                  sx={{ width: "56px", px: 1, py: "2px" }}
+                />
+                <Text variant="body2" sx={{ ml: 1 }}>
+                  cells
+                </Text>
+              </Flex>
+            </Box>
+            <Box mt={2}>
+              <Text as="label" variant="body2">
+                Light
+              </Text>
+              <Flex sx={{ alignItems: "center", mt: 1 }}>
+                <Input
+                  type="checkbox"
+                  checked={lightEnabled}
+                  onChange={(e) => handleLightToggle(e.target.checked)}
+                />
+                <Text variant="body2" sx={{ ml: 2, mr: 1 }}>
+                  Bright
+                </Text>
+                <Input
+                  type="number"
+                  value={lightRadiusBright}
+                  min={0}
+                  step={1}
+                  onChange={(e) =>
+                    handleLightChange({
+                      radiusBright: parseFloat(e.target.value) || 0,
+                    })
+                  }
+                  sx={{ width: "56px", px: 1, py: "2px" }}
+                />
+                <Text variant="body2" sx={{ ml: 2, mr: 1 }}>
+                  Dim
+                </Text>
+                <Input
+                  type="number"
+                  value={lightRadiusDim}
+                  min={0}
+                  step={1}
+                  onChange={(e) =>
+                    handleLightChange({ radiusDim: parseFloat(e.target.value) || 0 })
+                  }
+                  sx={{ width: "56px", px: 1, py: "2px" }}
+                />
+                <Input
+                  type="color"
+                  value={lightColor}
+                  onChange={(e) => handleLightChange({ color: e.target.value })}
+                  sx={{ ml: 2, width: "28px", height: "24px", p: 0 }}
+                />
+              </Flex>
+            </Box>
+          </>
         )}
       </Box>
     </MapMenu>

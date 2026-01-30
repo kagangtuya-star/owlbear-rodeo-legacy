@@ -149,9 +149,13 @@ function MapContols({
   const disabledSettings = useMemo(() => {
     const disabled: Partial<Record<keyof Settings, string[]>> = {
       drawing: [],
+      fog: [],
     };
     if (mapState && isEmpty(mapState.drawings)) {
       disabled.drawing?.push("erase");
+    }
+    if (!mapState || isEmpty(mapState.walls || {})) {
+      disabled.fog?.push("eraseAll");
     }
     return disabled;
   }, [mapState]);
@@ -383,6 +387,8 @@ function MapContols({
       selectedToolId === "spellTemplates" && !toolSettings.spellTemplates
         ? defaultSpellTemplateSettings
         : toolSettings[selectedToolId];
+    const showGmOpacity =
+      selectedToolId === "fog" && !!(map && map.owner === userId);
     return (
       <Box
         sx={{
@@ -399,6 +405,14 @@ function MapContols({
       >
         <Settings
           settings={selectedSettings}
+          fogEnabled={selectedToolId === "fog" ? mapState?.fogEnabled : undefined}
+          showGmOpacity={showGmOpacity}
+          gmOpacity={
+            selectedToolId === "fog" &&
+            typeof toolSettings.fog?.gmOpacity === "number"
+              ? toolSettings.fog.gmOpacity
+              : 0.35
+          }
           onSettingChange={(
             change: Partial<
               Settings["fog" | "drawing" | "spellTemplates" | "pointer" | "select"]

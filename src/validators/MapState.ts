@@ -10,6 +10,7 @@ import { TokenStateSchema } from "./TokenState";
 import { Vector2Schema } from "./Vector2";
 import { ColorSchema } from "./Color";
 import { OutlineSchema } from "./Outline";
+import { WallSchema } from "./Wall";
 
 export const MapStateSchema: any = {
   $id: "https://www.owlbear.rodeo/schemas/map-state.json",
@@ -25,6 +26,15 @@ export const MapStateSchema: any = {
     },
     templates: {
       $ref: "#/definitions/SpellTemplateState",
+    },
+    walls: {
+      $ref: "#/definitions/WallState",
+    },
+    explored: {
+      $ref: "#/definitions/ExploredState",
+    },
+    fogEnabled: {
+      type: "boolean",
     },
     editFlags: {
       items: {
@@ -115,6 +125,33 @@ export const MapStateSchema: any = {
       required: [],
       type: "object",
     },
+    WallState: {
+      propertyNames: {
+        type: "string",
+      },
+      additionalProperties: {
+        $ref: "wall.json",
+      },
+      required: [],
+      type: "object",
+    },
+    ExploredState: {
+      type: "array",
+      items: {
+        type: "array",
+        items: {
+          type: "array",
+          items: {
+            type: "array",
+            minItems: 2,
+            maxItems: 2,
+            items: {
+              type: "number",
+            },
+          },
+        },
+      },
+    },
   },
 };
 
@@ -130,6 +167,7 @@ export const ajv = new Ajv({
     Vector2Schema,
     ColorSchema,
     OutlineSchema,
+    WallSchema,
   ],
 });
 
