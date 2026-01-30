@@ -163,7 +163,18 @@ function NoteTool({
       interactionEmitter?.off("drag", handleBrushMove);
       interactionEmitter?.off("dragEnd", handleBrushUp);
     };
-  }, [active, interactionEmitter, map, mapStageRef, noteData, snapPositionToGrid, userId, mode]);
+  }, [
+    active,
+    interactionEmitter,
+    map,
+    mapStageRef,
+    noteData,
+    snapPositionToGrid,
+    userId,
+    mode,
+    onNoteCreate,
+    onNoteMenuOpen,
+  ]);
 
   return (
     <Group ref={creatingNoteRef}>

@@ -85,7 +85,7 @@ function NoteTextOverlay({
         frameRef.current = null;
       }
     };
-  }, [interactionEmitter]);
+  }, [interactionEmitter, scheduleUpdate]);
 
   useEffect(() => {
     scheduleUpdate();

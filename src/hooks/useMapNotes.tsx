@@ -1,7 +1,7 @@
 import Konva from "konva";
 import { Group } from "react-konva";
 import { KonvaEventObject } from "konva/lib/Node";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { v4 as uuid } from "uuid";
 import { useToasts } from "react-toast-notifications";
 
@@ -147,7 +147,7 @@ function useMapNotes(
     setAttachMode(false);
   }
 
-  function commitDraftContent(note: NoteType) {
+  const commitDraftContent = useCallback((note: NoteType) => {
     if (!activeNoteId || !allowNoteEditing || !userId) {
       return;
     }
@@ -173,13 +173,21 @@ function useMapNotes(
         lastModifiedBy: userId,
       },
     });
-  }
+  }, [
+    activeNoteId,
+    allowNoteEditing,
+    userId,
+    hasEdited,
+    draftContent,
+    draftStyle,
+    onNoteChange,
+  ]);
 
   function handleNoteMenuClose() {
     setIsNoteMenuOpen(false);
   }
 
-  function handleTextHudClose() {
+  const handleTextHudClose = useCallback(() => {
     if (activeNote) {
       commitDraftContent(activeNote);
     }
@@ -189,7 +197,7 @@ function useMapNotes(
     setAttachMode(false);
     setAutoFocusEditor(false);
     setHasEdited(false);
-  }
+  }, [activeNote, commitDraftContent]);
 
   function handleNoteDragStart(_: KonvaEventObject<DragEvent>, noteId: string) {
     if (duplicateNote) {
@@ -273,7 +281,7 @@ function useMapNotes(
     if (isNoteMenuOpen && selectedToolId === "text") {
       handleNoteMenuClose();
     }
-  }, [isHudOpen, isNoteMenuOpen, selectedToolId]);
+  }, [handleNoteMenuClose, handleTextHudClose, isHudOpen, isNoteMenuOpen, selectedToolId]);
 
   useEffect(() => {
     if (autoFocusEditor && editorRef.current) {
@@ -410,6 +418,8 @@ function useMapNotes(
     activeNoteId,
     allowNoteEditing,
     debouncedContent,
+    draftStyle,
+    hasEdited,
     isEditing,
     onNoteChange,
     userId,
@@ -422,7 +432,7 @@ function useMapNotes(
     if (!mapState.notes[activeNoteId]) {
       handleTextHudClose();
     }
-  }, [activeNoteId, mapState]);
+  }, [activeNoteId, handleTextHudClose, mapState]);
 
   function handleContentChange(value: string) {
     if (!allowNoteEditing) {

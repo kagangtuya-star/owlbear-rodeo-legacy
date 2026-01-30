@@ -207,13 +207,13 @@ function useTokenNotes(
       onTokenNoteRemove([openTokenStateId]);
       handleRequestClose();
     }
-  }, [mapState, onTokenNoteRemove, openTokenStateId]);
+  }, [handleRequestClose, mapState, onTokenNoteRemove, openTokenStateId]);
 
   useEffect(() => {
     if (!settings.enabled && openTokenStateId) {
       handleRequestClose();
     }
-  }, [openTokenStateId, settings.enabled]);
+  }, [handleRequestClose, openTokenStateId, settings.enabled]);
   const debouncedContent = useDebounce(draftContent, 1000);
 
   useEffect(() => {
