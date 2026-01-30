@@ -187,6 +187,14 @@ function Map({
     setSelectedTemplateId(null);
   }
 
+  function handleRemoveAllTemplates() {
+    if (templateShapes.length === 0) {
+      return;
+    }
+    handleTemplateRemove(templateShapes.map((template) => template.id));
+    setSelectedTemplateId(null);
+  }
+
   function isPointOverTemplateTrash(clientX: number, clientY: number) {
     const trash = templateTrashRef.current;
     if (!trash) {
@@ -263,6 +271,8 @@ function Map({
               onToolAction={handleToolAction}
               selectedTemplateId={selectedTemplateId}
               onRemoveSelectedTemplate={handleRemoveSelectedTemplate}
+              hasTemplates={templateShapes.length > 0}
+              onRemoveAllTemplates={handleRemoveAllTemplates}
               onUndo={onUndo}
               onRedo={onRedo}
             />

@@ -1,6 +1,6 @@
-import { MouseEventHandler, useState } from "react";
+import { MouseEventHandler, useEffect, useRef, useState } from "react";
 import type { MouseEvent } from "react";
-import { Box, Flex, Input, Label, SxProp, IconButton } from "theme-ui";
+import { Box, Flex, Input, Label, SxProp, IconButton, Button } from "theme-ui";
 import { useMedia } from "react-media";
 
 import ToolSection from "./shared/ToolSection";
@@ -15,6 +15,7 @@ import BrushTriangleIcon from "../../icons/BrushTriangleIcon";
 import FogPreviewOffIcon from "../../icons/FogPreviewOffIcon";
 import FogPreviewOnIcon from "../../icons/FogPreviewOnIcon";
 import SpellTemplateDragToolIcon from "../../icons/SpellTemplateDragToolIcon";
+import EraseAllIcon from "../../icons/EraseAllIcon";
 import RemoveTokenIcon from "../../icons/RemoveTokenIcon";
 import SettingsIcon from "../../icons/SettingsIcon";
 
@@ -31,6 +32,8 @@ type SpellTemplateToolSettingsProps = {
   onSettingChange: (change: Partial<SpellTemplateToolSettingsType>) => void;
   selectedTemplateId?: string | null;
   onRemoveSelectedTemplate?: (() => void) | null;
+  hasTemplates?: boolean;
+  onRemoveAllTemplates?: (() => void) | null;
 };
 
 type RuleOption = { value: SpellTemplateRule; label: string };
@@ -171,10 +174,18 @@ function SpellTemplateToolSettings({
   onSettingChange,
   selectedTemplateId,
   onRemoveSelectedTemplate,
+  hasTemplates,
+  onRemoveAllTemplates,
 }: SpellTemplateToolSettingsProps) {
   const isSmallScreen = useMedia({ query: "(max-width: 799px)" });
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [settingsMenuOptions, setSettingsMenuOptions] = useState({});
+  const [isClearAllConfirmOpen, setIsClearAllConfirmOpen] = useState(false);
+  const clearAllButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [clearAllMenuPosition, setClearAllMenuPosition] = useState({
+    left: 0,
+    top: 0,
+  });
 
   const toolIconSx = {
     width: "28px",
@@ -262,6 +273,21 @@ function SpellTemplateToolSettings({
   ];
 
   const selectedRule = ruleOptions.find((rule) => rule.value === settings.rule);
+
+  useEffect(() => {
+    if (!isClearAllConfirmOpen) {
+      return;
+    }
+    const button = clearAllButtonRef.current;
+    if (!button) {
+      return;
+    }
+    const rect = button.getBoundingClientRect();
+    setClearAllMenuPosition({
+      left: rect.left + rect.width / 2,
+      top: rect.bottom + 8,
+    });
+  }, [isClearAllConfirmOpen]);
 
   function handleSettingsClick(event: MouseEvent<HTMLButtonElement>) {
     if (showSettingsMenu) {
@@ -427,6 +453,37 @@ function SpellTemplateToolSettings({
       >
         <RemoveTokenIcon />
       </IconButton>
+      <IconButton
+        aria-label="Erase All"
+        title="Erase All"
+        onClick={() => {
+          if (!hasTemplates || !onRemoveAllTemplates) {
+            return;
+          }
+          setIsClearAllConfirmOpen(true);
+        }}
+        disabled={!hasTemplates || !onRemoveAllTemplates}
+        ref={clearAllButtonRef}
+      >
+        <EraseAllIcon />
+      </IconButton>
+      <MapMenu
+        isOpen={isClearAllConfirmOpen}
+        onRequestClose={() => setIsClearAllConfirmOpen(false)}
+        left={clearAllMenuPosition.left}
+        top={clearAllMenuPosition.top}
+        style={{ transform: "translateX(-50%)" }}
+      >
+        <Button
+          disabled={!hasTemplates || !onRemoveAllTemplates}
+          onClick={() => {
+            setIsClearAllConfirmOpen(false);
+            onRemoveAllTemplates && onRemoveAllTemplates();
+          }}
+        >
+          Erase All
+        </Button>
+      </MapMenu>
       <IconButton
         aria-label={
           settings.previewOnRotate
