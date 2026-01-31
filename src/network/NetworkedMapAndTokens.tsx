@@ -47,6 +47,9 @@ function normalizeMapState(state: MapState | null): MapState | null {
   if (!state) {
     return state;
   }
+  if (!state.walls) {
+    state.walls = {};
+  }
   if (Array.isArray(state.explored)) {
     return state;
   }

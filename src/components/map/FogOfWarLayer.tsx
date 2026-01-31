@@ -100,20 +100,18 @@ function FogOfWarLayer({
   const exploredCutOpacity = showExplored ? Math.min(0.2, fogOpacity) : 0;
   const dimCutOpacity = Math.min(0.35, fogOpacity);
 
-  const walls = useMemo(() => Object.values(mapState?.walls || {}), [mapState]);
-  const wallsSignature = useMemo(() => {
-    if (walls.length === 0) {
-      return "";
-    }
-    return walls
-      .map((wall) => {
-        const points = wall.points
-          .map((point) => `${point.x},${point.y}`)
-          .join(";");
-        return `${wall.id}:${points}`;
-      })
-      .join("|");
-  }, [walls]);
+  const walls = Object.values(mapState?.walls || {});
+  const wallsSignature =
+    walls.length === 0
+      ? ""
+      : walls
+          .map((wall) => {
+            const points = wall.points
+              .map((point) => `${point.x},${point.y}`)
+              .join(";");
+            return `${wall.id}:${points}`;
+          })
+          .join("|");
 
   const wallSegments = useMemo(() => {
     const segments = walls.flatMap(wallToSegments);

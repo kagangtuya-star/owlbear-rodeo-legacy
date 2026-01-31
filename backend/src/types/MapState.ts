@@ -10,8 +10,13 @@ export type MapState = {
   tokens: TokenStates;
   drawings: DrawingState;
   fogs: FogState;
+  templates?: Record<string, any>;
   editFlags: Array<EditFlag>;
   notes: Notes;
   tokenNotes: TokenNotes;
+  walls?: Record<string, any>;
+  explored?: number[][][][];
+  fogEnabled?: boolean;
+  showExplored?: boolean;
   mapId: string;
 };
