@@ -93,6 +93,10 @@ STUN_PUBLIC_HOST=<对外可达的域名或IP>
 - 确认前端 `REACT_APP_BROKER_URL` 指向正确后端。
 - 某些浏览器/扩展会禁用 WebRTC（尤其是隐私/广告拦截类）。
 
+## 引用
+
+[byronknoll/visibility-polygon-js: This library can be used to construct a visibility polygon for a set of line segments.](https://github.com/byronknoll/visibility-polygon-js) **高效的多边形光照算法**
+
 ## License
 本项目仅供个人使用，不提供商业授权。
 未经许可，不得进行商业目的的修改、发布或传播。
