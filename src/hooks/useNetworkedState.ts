@@ -53,9 +53,10 @@ function useNetworkedState<S extends { readonly [x: string]: any } | null>(
   // Update dirty at the same time as state
   const setState = useCallback<SetNetworkedState<S>>(
     (update, sync = true, force = false, updateLastSynced = false) => {
-      dirtyRef.current = sync;
-      forceUpdateRef.current = force;
-      updateLastSyncedRef.current = updateLastSynced;
+      dirtyRef.current = dirtyRef.current || sync;
+      forceUpdateRef.current = forceUpdateRef.current || force;
+      updateLastSyncedRef.current =
+        updateLastSyncedRef.current || updateLastSynced;
       _setState(update);
     },
     []
