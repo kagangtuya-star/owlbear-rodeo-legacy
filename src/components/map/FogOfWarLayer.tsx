@@ -266,9 +266,12 @@ function FogOfWarLayer({
     if (!showExplored) {
       return [];
     }
-    const explored = mapState?.explored || [];
+    const explored = Array.isArray(mapState?.explored) ? mapState?.explored : [];
     const result: Polygon[] = [];
     for (const entry of explored) {
+      if (!Array.isArray(entry)) {
+        continue;
+      }
       for (const polygon of entry) {
         if (Array.isArray(polygon) && polygon.length > 2) {
           result.push(polygon as Polygon);
@@ -291,7 +294,7 @@ function FogOfWarLayer({
     if (!fogEnabled || visibilityPolygons.length === 0 || !onExploredChange) {
       return;
     }
-    const explored = mapState?.explored || [];
+    const explored = Array.isArray(mapState?.explored) ? mapState?.explored : [];
     if (
       exploredRef.current === explored &&
       visibilitySignatureRef.current === visibilitySignature

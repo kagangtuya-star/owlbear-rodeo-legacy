@@ -39,7 +39,8 @@ function useNetworkedState<S extends { readonly [x: string]: any } | null>(
   eventName: string,
   debounceRate: number = 500,
   partialUpdates: boolean = true,
-  partialUpdatesKey: string = "id"
+  partialUpdatesKey: string = "id",
+  normalize?: (state: S) => S
 ): [S, SetNetworkedState<S>] {
   const [state, _setState] = useState(initialState);
   // Used to control whether the state needs to be sent to the socket
@@ -102,8 +103,9 @@ function useNetworkedState<S extends { readonly [x: string]: any } | null>(
 
   useEffect(() => {
     function handleSocketEvent(data: S) {
-      _setState(data);
-      lastSyncedStateRef.current = data;
+      const normalized = normalize ? normalize(data) : data;
+      _setState(normalized);
+      lastSyncedStateRef.current = normalized;
     }
 
     function handleSocketUpdateEvent(update: Update<S>) {
@@ -111,8 +113,14 @@ function useNetworkedState<S extends { readonly [x: string]: any } | null>(
         if (prevState && prevState[partialUpdatesKey] === update.id) {
           let newState = { ...prevState };
           applyChanges(newState, update.changes);
+          if (normalize) {
+            newState = normalize(newState);
+          }
           if (lastSyncedStateRef.current) {
             applyChanges(lastSyncedStateRef.current, update.changes);
+            if (normalize) {
+              lastSyncedStateRef.current = normalize(lastSyncedStateRef.current);
+            }
           }
           return newState;
         } else {

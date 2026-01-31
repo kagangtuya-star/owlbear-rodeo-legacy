@@ -8,6 +8,7 @@ import AssetStorage from "./AssetStorage";
 import { Update } from "../helpers/diff";
 import { Map } from "../types/Map";
 import { MapState } from "../types/MapState";
+import { normalizeMapState } from "../helpers/mapState";
 import { TokenState } from "../types/TokenState";
 import { PlayerState } from "../types/PlayerState";
 import { Manifest } from "../types/Manifest";
@@ -237,7 +238,8 @@ export default class GameServer {
             }
           }
 
-          this.gameRepo.setState(gameId, "mapState", mapState);
+          const normalizedMapState = normalizeMapState(mapState);
+          this.gameRepo.setState(gameId, "mapState", normalizedMapState);
           const state = this.gameRepo.getState(gameId, "mapState");
           socket.broadcast.to(gameId).emit("map_state", state);
         } catch (error) {

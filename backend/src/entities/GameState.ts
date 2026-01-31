@@ -1,5 +1,6 @@
 import { Server, Socket } from "socket.io";
 import { applyChanges, Update } from "../helpers/diff";
+import { normalizeMapState } from "../helpers/mapState";
 import GameRepository from "./GameRepository";
 
 export default class GameState {
@@ -30,7 +31,9 @@ export default class GameState {
     const partyState = this.gameRepository.getPartyState(gameId);
     this.socket.emit("party_state", partyState);
 
-    const mapState = this.gameRepository.getState(gameId, "mapState");
+    const mapState = normalizeMapState(
+      this.gameRepository.getState(gameId, "mapState") as any
+    );
     this.socket.emit("map_state", mapState);
 
     const map = this.gameRepository.getState(gameId, "map");
@@ -58,7 +61,13 @@ export default class GameState {
   ): Promise<boolean> {
     const state = this.gameRepository.getState(gameId, field) as any;
     if (state && !(state instanceof Map) && update.id === state["mapId"]) {
+      if (field === "mapState") {
+        normalizeMapState(state);
+      }
       applyChanges(state, update.changes);
+      if (field === "mapState") {
+        normalizeMapState(state);
+      }
       this.gameRepository.setState(gameId, field, state);
       return true;
     }

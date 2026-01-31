@@ -43,6 +43,16 @@ import {
   RemoveStatesAction,
 } from "../actions";
 
+function normalizeMapState(state: MapState | null): MapState | null {
+  if (!state) {
+    return state;
+  }
+  if (Array.isArray(state.explored)) {
+    return state;
+  }
+  return { ...state, explored: [] };
+}
+
 /**
  * @typedef {object} NetworkedMapProps
  * @property {Session} session
@@ -74,7 +84,8 @@ function NetworkedMapAndTokens({
       "map_state",
       500,
       true,
-      "mapId"
+      "mapId",
+      normalizeMapState
     );
   const [assetManifest, setAssetManifest] =
     useNetworkedState<AssetManifest | null>(
