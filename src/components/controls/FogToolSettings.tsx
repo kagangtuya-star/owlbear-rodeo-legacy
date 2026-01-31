@@ -12,6 +12,7 @@ import FogCutOnIcon from "../../icons/FogCutOnIcon";
 import FogCutOffIcon from "../../icons/FogCutOffIcon";
 import FogPreviewOffIcon from "../../icons/FogPreviewOffIcon";
 import FogPreviewOnIcon from "../../icons/FogPreviewOnIcon";
+import ResetMapIcon from "../../icons/ResetMapIcon";
 
 import ToolSection from "./shared/ToolSection";
 
@@ -105,6 +106,13 @@ function FogToolSettings({
       >
         {exploredVisible ? <FogCutOnIcon /> : <FogCutOffIcon />}
       </RadioIconButton>
+      <IconButton
+        aria-label="Reset Explored Fog"
+        title="Reset Explored Fog"
+        onClick={() => onToolAction?.("resetExplored")}
+      >
+        <ResetMapIcon />
+      </IconButton>
       <Divider vertical />
       <IconButton
         aria-label={

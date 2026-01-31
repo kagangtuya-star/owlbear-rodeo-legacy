@@ -318,6 +318,25 @@ function NetworkedMapAndTokens({
   }
 
   const handleMapStateChange: MapStateSettingsChangeEventHandler = (change) => {
+    if (
+      currentMapState &&
+      Array.isArray(change.explored) &&
+      change.explored.length === 0
+    ) {
+      setCurrentMapState(
+        (prevState) => {
+          if (!prevState) {
+            return prevState;
+          }
+          return { ...prevState, ...change };
+        },
+        false,
+        false,
+        true
+      );
+      session.socket?.emit("explored_reset", { mapId: currentMapState.mapId });
+      return;
+    }
     setCurrentMapState((prevState) => {
       if (!prevState) {
         return prevState;
@@ -740,16 +759,35 @@ function NetworkedMapAndTokens({
       );
     }
 
+    function handleExploredReset(update: { mapId?: string }) {
+      if (!update?.mapId) {
+        return;
+      }
+      setCurrentMapState(
+        (prevState) => {
+          if (!prevState || prevState.mapId !== update.mapId) {
+            return prevState;
+          }
+          return { ...prevState, explored: [] };
+        },
+        false,
+        false,
+        true
+      );
+    }
+
     session.on("peerData", handlePeerData);
     session.on("peerDataProgress", handlePeerDataProgress);
     session.socket?.on("map", handleSocketMap);
     session.socket?.on("token_positions", handleTokenPositions);
+    session.socket?.on("explored_reset", handleExploredReset);
 
     return () => {
       session.off("peerData", handlePeerData);
       session.off("peerDataProgress", handlePeerDataProgress);
       session.socket?.off("map", handleSocketMap);
       session.socket?.off("token_positions", handleTokenPositions);
+      session.socket?.off("explored_reset", handleExploredReset);
     };
   });
 

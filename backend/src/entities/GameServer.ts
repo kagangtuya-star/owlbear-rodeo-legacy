@@ -319,6 +319,40 @@ export default class GameServer {
         }
       );
 
+      socket.on("explored_reset", async (update: { mapId?: string }) => {
+        try {
+          let gameId: string;
+          if (_gameId) {
+            gameId = _gameId;
+          } else {
+            const result = gameState.getGameId();
+            if (result) {
+              gameId = result;
+              _gameId = result;
+            } else {
+              return;
+            }
+          }
+
+          if (!update?.mapId) {
+            return;
+          }
+
+          const state = this.gameRepo.getState(gameId, "mapState") as
+            | (MapState & { explored?: number[][][][] })
+            | undefined;
+          if (!state || state.mapId !== update.mapId) {
+            return;
+          }
+
+          state.explored = [];
+          this.gameRepo.setState(gameId, "mapState", state);
+          socket.broadcast.to(gameId).emit("explored_reset", update);
+        } catch (error) {
+          console.error("EXPLORED_RESET_ERROR", error);
+        }
+      });
+
       socket.on("player_state", async (playerState: PlayerState) => {
         try {
           let gameId: string;

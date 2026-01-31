@@ -176,6 +176,8 @@ function Map({
       onMapStateChange({ fogEnabled: !(mapState?.fogEnabled ?? true) });
     } else if (action === "toggleExplored") {
       onMapStateChange({ showExplored: !(mapState?.showExplored ?? false) });
+    } else if (action === "resetExplored") {
+      onMapStateChange({ explored: [] });
     } else if (action.startsWith("setGmOpacity:")) {
       const rawValue = parseFloat(action.split(":")[1]);
       const nextValue = Number.isFinite(rawValue)
