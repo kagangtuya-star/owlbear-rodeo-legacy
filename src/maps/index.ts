@@ -61,6 +61,7 @@ export function getDefaultMaps(userId: string): {
       editFlags: ["drawing", "tokens", "notes"],
       notes: {},
       tokenNotes: {},
+      fogEnabled: false,
     };
     mapStates.push(state);
   }

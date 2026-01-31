@@ -63,7 +63,7 @@ const defaultMapState: Omit<MapState, "mapId"> = {
   tokenNotes: {},
   walls: {},
   explored: [],
-  fogEnabled: true,
+  fogEnabled: false,
   showExplored: false,
 };
 
