@@ -33,7 +33,7 @@ jobs:
             . ./.env
             set +a
           fi
-          yarn build
+          CI=false yarn build
       - name: Deploy build to pages branch
         uses: peaceiris/actions-gh-pages@v4
         with:
