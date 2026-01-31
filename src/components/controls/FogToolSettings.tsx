@@ -13,6 +13,7 @@ import FogCutOffIcon from "../../icons/FogCutOffIcon";
 import FogPreviewOffIcon from "../../icons/FogPreviewOffIcon";
 import FogPreviewOnIcon from "../../icons/FogPreviewOnIcon";
 import ResetMapIcon from "../../icons/ResetMapIcon";
+import TokenShowIcon from "../../icons/TokenShowIcon";
 
 import ToolSection from "./shared/ToolSection";
 
@@ -52,6 +53,7 @@ function FogToolSettings({
 }: FogToolSettingsProps) {
   const exploredVisible = !!showExplored;
   const previewOnDrag = !!settings.previewOnDrag;
+  const autoVisionOnDrop = !!settings.autoVisionOnDrop;
   // Keyboard shortcuts
   function handleKeyDown(event: KeyboardEvent) {
     if (shortcuts.fogPolygon(event)) {
@@ -129,6 +131,22 @@ function FogToolSettings({
         sx={{ color: previewOnDrag ? "primary" : "text" }}
       >
         {previewOnDrag ? <FogPreviewOnIcon /> : <FogPreviewOffIcon />}
+      </IconButton>
+      <IconButton
+        aria-label={
+          autoVisionOnDrop
+            ? "Disable Auto Vision on Drop"
+            : "Enable Auto Vision on Drop"
+        }
+        title={
+          autoVisionOnDrop
+            ? "Disable Auto Vision on Drop"
+            : "Enable Auto Vision on Drop"
+        }
+        onClick={() => onSettingChange({ autoVisionOnDrop: !autoVisionOnDrop })}
+        sx={{ color: autoVisionOnDrop ? "primary" : "text" }}
+      >
+        <TokenShowIcon />
       </IconButton>
       {showGmOpacity && (
         <>

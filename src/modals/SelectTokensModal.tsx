@@ -73,6 +73,7 @@ function SelectTokensModal({
   const [imageCompressionQuality] = useSetting<number>(
     "asset.compressionQuality"
   );
+  const [autoVisionOnDrop] = useSetting<boolean>("fog.autoVisionOnDrop");
 
   // Get token names for group filtering
   const [tokenNames, setTokenNames] = useState(getItemNames(tokens));
@@ -201,7 +202,11 @@ function SelectTokensModal({
 
     for (let id of groupIds) {
       if (id in tokensById) {
-        newTokenStates.push(createTokenState(tokensById[id], position, userId));
+        newTokenStates.push(
+          createTokenState(tokensById[id], position, userId, {
+            autoEnableVision: autoVisionOnDrop,
+          })
+        );
         position = Vector2.add(position, 0.01);
       } else {
         // Check if a group is selected
@@ -214,7 +219,9 @@ function SelectTokensModal({
           for (let item of items) {
             if (item.id in tokensById) {
               newTokenStates.push(
-                createTokenState(tokensById[item.id], position, userId)
+                createTokenState(tokensById[item.id], position, userId, {
+                  autoEnableVision: autoVisionOnDrop,
+                })
               );
               position = Vector2.add(position, 0.01);
             }

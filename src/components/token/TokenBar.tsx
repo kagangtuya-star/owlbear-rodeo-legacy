@@ -43,6 +43,7 @@ function TokenBar({ onMapTokensStateCreate }: TokenBarProps) {
   const userId = useUserId();
   const { tokensById, tokenGroups } = useTokenData();
   const [fullScreen] = useSetting<boolean>("map.fullScreen");
+  const [autoVisionOnDrop] = useSetting<boolean>("fog.autoVisionOnDrop");
 
   const [dragId, setDragId] = useState<string | null>(null);
 
@@ -85,7 +86,9 @@ function TokenBar({ onMapTokensStateCreate }: TokenBarProps) {
       if (group && mapPosition) {
         if (group.type === "item") {
           const token = tokensById[group.id];
-          const tokenState = createTokenState(token, mapPosition, userId);
+          const tokenState = createTokenState(token, mapPosition, userId, {
+            autoEnableVision: autoVisionOnDrop,
+          });
           onMapTokensStateCreate([tokenState]);
         } else {
           let tokenStates = [];
@@ -97,7 +100,8 @@ function TokenBar({ onMapTokensStateCreate }: TokenBarProps) {
                 createTokenState(
                   token,
                   Vector2.add(mapPosition, offset),
-                  userId
+                  userId,
+                  { autoEnableVision: autoVisionOnDrop }
                 )
               );
               offset = Vector2.add(offset, 0.01);

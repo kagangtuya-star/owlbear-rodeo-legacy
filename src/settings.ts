@@ -161,6 +161,17 @@ function loadVersions(settings: Settings) {
           : false,
     },
   }));
+  // v1.16.1 - Add auto vision on token drop
+  settings.version(17, (prev: any) => ({
+    ...prev,
+    fog: {
+      ...prev.fog,
+      autoVisionOnDrop:
+        typeof prev?.fog?.autoVisionOnDrop === "boolean"
+          ? prev.fog.autoVisionOnDrop
+          : false,
+    },
+  }));
 }
 
 export function getSettings() {

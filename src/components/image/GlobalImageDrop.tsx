@@ -49,6 +49,7 @@ function GlobalImageDrop({
   const [imageCompressionQuality] = useSetting<number>(
     "asset.compressionQuality"
   );
+  const [autoVisionOnDrop] = useSetting<boolean>("fog.autoVisionOnDrop");
 
   const mapStageRef = useMapStage();
 
@@ -374,7 +375,8 @@ function GlobalImageDrop({
                 createTokenState(
                   token,
                   Vector2.add(mapPosition, offset),
-                  userId
+                  userId,
+                  { autoEnableVision: autoVisionOnDrop }
                 )
               );
               offset = Vector2.add(offset, 0.01);

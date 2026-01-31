@@ -24,7 +24,8 @@ function clampQuality(value: number) {
 export function createTokenState(
   token: Token,
   position: Vector2,
-  userId: string
+  userId: string,
+  options?: { autoEnableVision?: boolean; visionRange?: number }
 ): TokenState {
   let tokenState: BaseTokenState = {
     id: uuid(),
@@ -45,6 +46,13 @@ export function createTokenState(
     width: token.width,
     height: token.height,
   };
+  if (options?.autoEnableVision) {
+    tokenState = {
+      ...tokenState,
+      hasVision: true,
+      visionRange: options.visionRange ?? 4,
+    };
+  }
   if (token.type === "file") {
     return {
       ...tokenState,

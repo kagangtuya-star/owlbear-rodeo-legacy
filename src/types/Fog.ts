@@ -14,6 +14,7 @@ export type FogToolSettings = {
   preview: boolean;
   useFogCut: boolean;
   previewOnDrag?: boolean;
+  autoVisionOnDrop?: boolean;
   showExplored?: boolean;
 };
 
