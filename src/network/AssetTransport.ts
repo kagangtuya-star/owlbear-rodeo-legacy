@@ -77,12 +77,25 @@ export default class AssetTransport {
   private incomingChunks: Record<string, IncomingChunk>;
   private iceServers: RTCIceServer[] | null;
   private icePromise?: Promise<RTCIceServer[]>;
+  private webrtcUnavailable: boolean;
 
   constructor(options: AssetTransportOptions) {
     this.options = options;
     this.peers = {};
     this.incomingChunks = {};
     this.iceServers = null;
+    this.webrtcUnavailable = false;
+  }
+
+  isAvailable() {
+    if (this.webrtcUnavailable) {
+      return false;
+    }
+    if (typeof RTCPeerConnection === "undefined") {
+      this.markWebRtcUnavailable("missing_rtcpeerconnection");
+      return false;
+    }
+    return true;
   }
 
   async send(
@@ -92,7 +105,7 @@ export default class AssetTransport {
     chunkId?: string,
     options?: { timeoutMs?: number }
   ): Promise<boolean> {
-    if (typeof RTCPeerConnection === "undefined") {
+    if (!this.isAvailable()) {
       return false;
     }
 
@@ -122,6 +135,9 @@ export default class AssetTransport {
   }
 
   handleOffer(payload: SignalOfferPayload) {
+    if (!this.isAvailable()) {
+      return;
+    }
     if (!payload || typeof payload.from !== "string" || !payload.sdp) {
       return;
     }
@@ -129,6 +145,9 @@ export default class AssetTransport {
   }
 
   handleAnswer(payload: SignalAnswerPayload) {
+    if (!this.isAvailable()) {
+      return;
+    }
     if (!payload || typeof payload.from !== "string" || !payload.sdp) {
       return;
     }
@@ -136,6 +155,9 @@ export default class AssetTransport {
   }
 
   handleIce(payload: SignalIcePayload) {
+    if (!this.isAvailable()) {
+      return;
+    }
     if (!payload || typeof payload.from !== "string" || !payload.candidate) {
       return;
     }
@@ -159,12 +181,21 @@ export default class AssetTransport {
   }
 
   private async ensurePeer(peerId: string, role?: "initiator" | "answerer") {
+    if (!this.isAvailable()) {
+      return;
+    }
     if (this.peers[peerId]) {
       return this.peers[peerId];
     }
 
     const iceServers = await this.loadIceServers();
-    const pc = new RTCPeerConnection({ iceServers });
+    let pc: RTCPeerConnection;
+    try {
+      pc = new RTCPeerConnection({ iceServers });
+    } catch (error) {
+      this.markWebRtcUnavailable("rtcpeerconnection_create_failed", error);
+      return;
+    }
     const localId = this.options.getLocalId();
     const isInitiator =
       role === "initiator"
@@ -564,5 +595,17 @@ export default class AssetTransport {
       this.options.log?.("P2P_ASSET_ICE_FETCH_ERROR", error);
       return [];
     }
+  }
+
+  private markWebRtcUnavailable(reason: string, error?: unknown) {
+    if (this.webrtcUnavailable) {
+      return;
+    }
+    this.webrtcUnavailable = true;
+    if (error) {
+      this.options.log?.("P2P_UNAVAILABLE", { reason, error });
+      return;
+    }
+    this.options.log?.("P2P_UNAVAILABLE", { reason });
   }
 }

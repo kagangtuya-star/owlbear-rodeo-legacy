@@ -185,6 +185,16 @@ class Session extends EventEmitter {
       return false;
     }
     const allowRelayFallback = options?.allowRelayFallback !== false;
+    if (!this.assetTransport.isAvailable()) {
+      this.sendTo(sessionId, eventId, data, chunkId);
+      console.info("ASSET_SEND_MODE_RELAY_NO_P2P", {
+        sessionId,
+        eventId,
+        chunkId,
+        allowRelayFallback,
+      });
+      return false;
+    }
     console.info("ASSET_SEND_TRY_P2P", { sessionId, eventId, chunkId });
     const sentViaP2P = await this.assetTransport.send(
       sessionId,
