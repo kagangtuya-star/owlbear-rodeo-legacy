@@ -115,9 +115,11 @@ export default function useAssetTransfer(gameId: string) {
           )
         : url;
 
-      const response = await fetch(finalUrl, { credentials: "omit" });
+    const response = await fetch(finalUrl, { credentials: "omit" });
     if (!response.ok) {
-      throw new Error(`asset_download_failed_${response.status}`);
+      const error = new Error(`asset_download_failed_${response.status}`);
+      (error as Error & { status?: number }).status = response.status;
+      throw error;
     }
     const buffer = await response.arrayBuffer();
     return new Uint8Array(buffer);

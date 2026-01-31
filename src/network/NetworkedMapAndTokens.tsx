@@ -137,6 +137,7 @@ function NetworkedMapAndTokens({
   const pendingAssetTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>(
     {}
   );
+  const assetDownloadFailuresRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     if (!assetManifest || !userId) {
@@ -595,6 +596,16 @@ function NetworkedMapAndTokens({
           );
           return;
         }
+        if (data?.reason === "download_failed") {
+          await session.sendAssetTo(
+            peerId,
+            "assetResponseSuccess",
+            asset,
+            asset.id,
+            { allowRelayFallback: true }
+          );
+          return;
+        }
 
         let remoteUrl = asset.remoteUrl;
         if (!remoteUrl) {
@@ -662,10 +673,38 @@ function NetworkedMapAndTokens({
             source: "uploaded",
           };
           await putAsset(assetFromServer);
+          delete assetDownloadFailuresRef.current[assetId];
           assetProgressUpdate({ id: assetId, total: 1, count: 1 });
         } catch (error) {
-          console.error("ASSET_DOWNLOAD_FAILED", error);
-          addToast("图片下载失败，请稍后重试");
+          const status = (error as Error & { status?: number })?.status;
+          const isNetworkError =
+            status === undefined &&
+            error instanceof Error &&
+            error.message === "Failed to fetch";
+          const isMissing =
+            status === 404 ||
+            (error instanceof Error &&
+              error.message === "asset_download_failed_404");
+          if ((isMissing || isNetworkError) && peerId) {
+            const previousFailures = assetDownloadFailuresRef.current[assetId] ?? 0;
+            const failureCount = previousFailures + 1;
+            assetDownloadFailuresRef.current[assetId] = failureCount;
+            const forceRelay = failureCount >= 2 || isNetworkError;
+            await session.sendAssetTo(
+              peerId,
+              "assetP2pFailed",
+              {
+                id: assetId,
+                gameId,
+                reason: forceRelay ? "download_failed" : "not_found",
+              },
+              assetId,
+              { allowRelayFallback: true }
+            );
+          } else {
+            console.error("ASSET_DOWNLOAD_FAILED", error);
+            addToast("图片下载失败，请稍后重试");
+          }
         } finally {
           requestingAssetsRef.current.delete(assetId);
           const pendingTimeout = pendingAssetTimeoutsRef.current[assetId];
@@ -680,6 +719,7 @@ function NetworkedMapAndTokens({
       if (id === "assetResponseSuccess") {
         const asset = data;
         await putAsset(asset);
+        delete assetDownloadFailuresRef.current[asset.id];
         requestingAssetsRef.current.delete(asset.id);
         const pendingTimeout = pendingAssetTimeoutsRef.current[asset.id];
         if (pendingTimeout) {
@@ -691,6 +731,7 @@ function NetworkedMapAndTokens({
 
       if (id === "assetResponseFail") {
         const assetId = data;
+        delete assetDownloadFailuresRef.current[assetId];
         requestingAssetsRef.current.delete(assetId);
         assetProgressUpdate({ id: assetId, total: 1, count: 1 });
         addToast("资源传输失败，所有者未找到文件");
