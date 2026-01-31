@@ -85,7 +85,7 @@ function FogOfWarLayer({
   const isOwner = !!(map && map.owner === userId);
   const gmOpacity =
     typeof fogSettings?.gmOpacity === "number" ? fogSettings.gmOpacity : 0.35;
-  const showExplored = !!fogSettings?.showExplored;
+  const showExplored = !!mapState?.showExplored;
   const baseFogOpacity = isOwner ? gmOpacity : 1;
   const fogOpacity = Math.min(Math.max(baseFogOpacity, 0), 1);
   const exploredCutOpacity = showExplored ? Math.min(0.2, fogOpacity) : 0;
@@ -101,6 +101,16 @@ function FogOfWarLayer({
     return breakIntersections(segments);
   }, [walls]);
 
+  const tokensSignature = useMemo(() => {
+    const tokens = Object.values(mapState?.tokens || {});
+    return tokens
+      .map(
+        (token) =>
+          `${token.id}:${token.x}:${token.y}:${token.visible}:${token.hasVision}:${token.visionRange}:${token.lightConfig?.enabled}:${token.lightConfig?.radiusBright}:${token.lightConfig?.radiusDim}:${token.lightConfig?.color}`
+      )
+      .join("|");
+  }, [mapState]);
+
   const visionSources = useMemo(() => {
     const tokens = Object.values(mapState?.tokens || {});
     return tokens
@@ -110,7 +120,7 @@ function FogOfWarLayer({
         y: token.y,
         range: typeof token.visionRange === "number" ? token.visionRange : 0,
       }));
-  }, [mapState?.tokens]);
+  }, [tokensSignature, mapState]);
 
   const lightSources = useMemo(() => {
     const tokens = Object.values(mapState?.tokens || {});
@@ -129,7 +139,7 @@ function FogOfWarLayer({
             : 0,
         color: token.lightConfig?.color || "#ffffff",
       }));
-  }, [mapState?.tokens]);
+  }, [tokensSignature, mapState]);
 
   const visibilityPolygons = useMemo(() => {
     if (!fogEnabled) {

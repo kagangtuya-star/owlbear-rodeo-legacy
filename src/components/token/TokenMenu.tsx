@@ -86,7 +86,7 @@ function TokenMenu({
   const [visionLightOpen, setVisionLightOpen] = useState(false);
   const sidePanelRef = useRef<HTMLDivElement | null>(null);
   const [sidePanelStyle, setSidePanelStyle] = useState<{
-    left?: string | number;
+    left?: number;
     top?: number;
   }>({});
   useEffect(() => {
@@ -118,28 +118,36 @@ function TokenMenu({
     if (!visionLightOpen) {
       return;
     }
-    const panel = sidePanelRef.current;
-    const panelWidth = 180;
-    const panelGap = 8;
-    const menuWidth = 156;
-    const rightSpace = window.innerWidth - (menuLeft + menuWidth);
-    const placeRight = rightSpace >= panelWidth + panelGap;
-    let top = 0;
-    if (panel) {
-      const rect = panel.getBoundingClientRect();
-      const desiredTop = menuTop;
-      const maxTop = window.innerHeight - rect.height - 8;
-      const clampedTop = Math.min(Math.max(desiredTop, 8), Math.max(8, maxTop));
-      top = clampedTop - menuTop;
-    }
-    if (placeRight) {
-      setSidePanelStyle({ left: `calc(100% + ${panelGap}px)`, top });
-    } else {
-      const desiredLeft = -(panelWidth + panelGap);
-      const minLeft = -(menuLeft - 8);
-      const left = Math.max(desiredLeft, minLeft);
+
+    function updateSidePanelPosition() {
+      const panel = sidePanelRef.current;
+      const panelWidth = 180;
+      const panelGap = 8;
+      const menuWidth = 156;
+
+      let left = menuLeft - panelWidth - panelGap;
+      const minLeft = 8;
+      const maxLeft = window.innerWidth - panelWidth - 8;
+      if (left < minLeft) {
+        left = menuLeft + menuWidth + panelGap;
+      }
+      if (left > maxLeft) {
+        left = maxLeft;
+      }
+
+      let top = menuTop;
+      if (panel) {
+        const rect = panel.getBoundingClientRect();
+        const maxTop = window.innerHeight - rect.height - 8;
+        top = Math.min(Math.max(menuTop, 8), Math.max(8, maxTop));
+      }
+
       setSidePanelStyle({ left, top });
     }
+
+    updateSidePanelPosition();
+    window.addEventListener("resize", updateSidePanelPosition);
+    return () => window.removeEventListener("resize", updateSidePanelPosition);
   }, [visionLightOpen, menuLeft, menuTop]);
 
   function handleLabelChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -426,9 +434,9 @@ function TokenMenu({
           <Box
             ref={sidePanelRef}
             sx={{
-              position: "absolute",
-              top: sidePanelStyle.top ?? 0,
-              left: sidePanelStyle.left ?? "calc(100% + 8px)",
+              position: "fixed",
+              top: sidePanelStyle.top ?? menuTop,
+              left: sidePanelStyle.left ?? menuLeft + 164,
               width: "180px",
               backgroundColor: "overlay",
               borderRadius: "4px",

@@ -21,5 +21,6 @@ export type MapState = {
   walls?: WallState;
   explored?: ExploredState;
   fogEnabled?: boolean;
+  showExplored?: boolean;
   mapId: string;
 };

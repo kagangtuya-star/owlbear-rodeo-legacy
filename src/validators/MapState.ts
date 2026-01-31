@@ -36,6 +36,9 @@ export const MapStateSchema: any = {
     fogEnabled: {
       type: "boolean",
     },
+    showExplored: {
+      type: "boolean",
+    },
     editFlags: {
       items: {
         enum: ["drawing", "fog", "notes", "tokens"],

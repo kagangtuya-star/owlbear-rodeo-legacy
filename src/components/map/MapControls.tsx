@@ -407,6 +407,9 @@ function MapContols({
           settings={selectedSettings}
           fogEnabled={selectedToolId === "fog" ? mapState?.fogEnabled : undefined}
           showGmOpacity={showGmOpacity}
+          showExplored={
+            selectedToolId === "fog" ? mapState?.showExplored ?? false : false
+          }
           gmOpacity={
             selectedToolId === "fog" &&
             typeof toolSettings.fog?.gmOpacity === "number"

@@ -64,6 +64,7 @@ const defaultMapState: Omit<MapState, "mapId"> = {
   walls: {},
   explored: [],
   fogEnabled: true,
+  showExplored: false,
 };
 
 export function MapDataProvider({ children }: { children: React.ReactNode }) {

@@ -34,6 +34,7 @@ type FogToolSettingsProps = {
   fogEnabled?: boolean;
   showGmOpacity?: boolean;
   gmOpacity?: number;
+  showExplored?: boolean;
 };
 
 function FogToolSettings({
@@ -44,8 +45,9 @@ function FogToolSettings({
   fogEnabled = true,
   showGmOpacity = false,
   gmOpacity = 0.35,
+  showExplored = false,
 }: FogToolSettingsProps) {
-  const showExplored = !!settings.showExplored;
+  const exploredVisible = !!showExplored;
   // Keyboard shortcuts
   function handleKeyDown(event: KeyboardEvent) {
     if (shortcuts.fogPolygon(event)) {
@@ -94,11 +96,11 @@ function FogToolSettings({
       </RadioIconButton>
       <Divider vertical />
       <RadioIconButton
-        title={showExplored ? "Hide Explored" : "Show Explored"}
-        onClick={() => onSettingChange({ showExplored: !showExplored })}
-        isSelected={showExplored}
+        title={exploredVisible ? "Hide Explored" : "Show Explored"}
+        onClick={() => onToolAction?.("toggleExplored")}
+        isSelected={exploredVisible}
       >
-        {showExplored ? <FogCutOnIcon /> : <FogCutOffIcon />}
+        {exploredVisible ? <FogCutOnIcon /> : <FogCutOffIcon />}
       </RadioIconButton>
       {showGmOpacity && (
         <>

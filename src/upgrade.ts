@@ -1015,9 +1015,23 @@ export const versions: Record<number, VersionCallback> = {
         });
     });
   },
+  // v1.15.1 - Add explored visibility toggle
+  46(v, onUpgrade) {
+    v.stores({}).upgrade((tx) => {
+      onUpgrade?.(46);
+      return tx
+        .table("states")
+        .toCollection()
+        .modify((state) => {
+          if (state.showExplored === undefined) {
+            state.showExplored = false;
+          }
+        });
+    });
+  },
 };
 
-export const latestVersion = 45;
+export const latestVersion = 46;
 
 /**
  * Load versions onto a database up to a specific version number
