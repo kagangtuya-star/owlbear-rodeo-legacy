@@ -111,7 +111,7 @@ function useNetworkedState<S extends { readonly [x: string]: any } | null>(
     function handleSocketUpdateEvent(update: Update<S>) {
       _setState((prevState) => {
         if (prevState && prevState[partialUpdatesKey] === update.id) {
-          let newState = { ...prevState };
+          let newState = { ...prevState } as S;
           applyChanges(newState, update.changes);
           if (normalize) {
             newState = normalize(newState);

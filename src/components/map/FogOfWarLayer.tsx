@@ -45,17 +45,22 @@ function wallToSegments(wall: Wall): Segment[] {
   return segments;
 }
 
-function createCircleSegments(center: Point, radius: number, steps = 32): Segment[] {
+function createEllipseSegments(
+  center: Point,
+  radiusX: number,
+  radiusY: number,
+  steps = 32
+): Segment[] {
   const segments: Segment[] = [];
-  if (radius <= 0 || steps < 3) {
+  if (radiusX <= 0 || radiusY <= 0 || steps < 3) {
     return segments;
   }
   const points: Point[] = [];
   for (let i = 0; i < steps; i++) {
     const angle = (Math.PI * 2 * i) / steps;
     points.push([
-      center[0] + Math.cos(angle) * radius,
-      center[1] + Math.sin(angle) * radius,
+      center[0] + Math.cos(angle) * radiusX,
+      center[1] + Math.sin(angle) * radiusY,
     ]);
   }
   for (let i = 0; i < points.length; i++) {
@@ -95,15 +100,25 @@ function FogOfWarLayer({
   const exploredCutOpacity = showExplored ? Math.min(0.2, fogOpacity) : 0;
   const dimCutOpacity = Math.min(0.35, fogOpacity);
 
-  const walls = useMemo(
-    () => Object.values(mapState?.walls || {}),
-    [mapState?.walls]
-  );
+  const walls = useMemo(() => Object.values(mapState?.walls || {}), [mapState]);
+  const wallsSignature = useMemo(() => {
+    if (walls.length === 0) {
+      return "";
+    }
+    return walls
+      .map((wall) => {
+        const points = wall.points
+          .map((point) => `${point.x},${point.y}`)
+          .join(";");
+        return `${wall.id}:${points}`;
+      })
+      .join("|");
+  }, [walls]);
 
   const wallSegments = useMemo(() => {
     const segments = walls.flatMap(wallToSegments);
     return breakIntersections(segments);
-  }, [walls]);
+  }, [wallsSignature]);
 
   const tokens = useMemo(() => {
     const baseTokens = Object.values(mapState?.tokens || {});
@@ -164,23 +179,24 @@ function FogOfWarLayer({
     if (!fogEnabled) {
       return [];
     }
-    const unit = Math.min(
-      gridCellNormalizedSize.x,
-      gridCellNormalizedSize.y
-    );
-    if (unit <= 0) {
+    if (gridCellNormalizedSize.x <= 0 || gridCellNormalizedSize.y <= 0) {
       return [];
     }
     const viewportMin: Point = [0, 0];
     const viewportMax: Point = [1, 1];
     const polygons: Polygon[] = [];
     for (let source of visionSources) {
-      const radius = source.range * unit;
-      if (radius <= 0) {
+      const radiusX = source.range * gridCellNormalizedSize.x;
+      const radiusY = source.range * gridCellNormalizedSize.y;
+      if (radiusX <= 0 || radiusY <= 0) {
         continue;
       }
-      const circleSegments = createCircleSegments([source.x, source.y], radius);
-      const segments = breakIntersections([...wallSegments, ...circleSegments]);
+      const ellipseSegments = createEllipseSegments(
+        [source.x, source.y],
+        radiusX,
+        radiusY
+      );
+      const segments = breakIntersections([...wallSegments, ...ellipseSegments]);
       const poly = computeViewport(
         [source.x, source.y],
         segments,
@@ -198,23 +214,24 @@ function FogOfWarLayer({
     if (!fogEnabled) {
       return [];
     }
-    const unit = Math.min(
-      gridCellNormalizedSize.x,
-      gridCellNormalizedSize.y
-    );
-    if (unit <= 0) {
+    if (gridCellNormalizedSize.x <= 0 || gridCellNormalizedSize.y <= 0) {
       return [];
     }
     const viewportMin: Point = [0, 0];
     const viewportMax: Point = [1, 1];
     const polygons: LightPolygon[] = [];
     for (let source of lightSources) {
-      const radius = source.bright * unit;
-      if (radius <= 0) {
+      const radiusX = source.bright * gridCellNormalizedSize.x;
+      const radiusY = source.bright * gridCellNormalizedSize.y;
+      if (radiusX <= 0 || radiusY <= 0) {
         continue;
       }
-      const circleSegments = createCircleSegments([source.x, source.y], radius);
-      const segments = breakIntersections([...wallSegments, ...circleSegments]);
+      const ellipseSegments = createEllipseSegments(
+        [source.x, source.y],
+        radiusX,
+        radiusY
+      );
+      const segments = breakIntersections([...wallSegments, ...ellipseSegments]);
       const poly = computeViewport(
         [source.x, source.y],
         segments,
@@ -232,23 +249,26 @@ function FogOfWarLayer({
     if (!fogEnabled) {
       return [];
     }
-    const unit = Math.min(
-      gridCellNormalizedSize.x,
-      gridCellNormalizedSize.y
-    );
-    if (unit <= 0) {
+    if (gridCellNormalizedSize.x <= 0 || gridCellNormalizedSize.y <= 0) {
       return [];
     }
     const viewportMin: Point = [0, 0];
     const viewportMax: Point = [1, 1];
     const polygons: LightPolygon[] = [];
     for (let source of lightSources) {
-      const radius = Math.max(source.dim, source.bright) * unit;
-      if (radius <= 0 || source.dim <= source.bright) {
+      const radiusX =
+        Math.max(source.dim, source.bright) * gridCellNormalizedSize.x;
+      const radiusY =
+        Math.max(source.dim, source.bright) * gridCellNormalizedSize.y;
+      if (radiusX <= 0 || radiusY <= 0 || source.dim <= source.bright) {
         continue;
       }
-      const circleSegments = createCircleSegments([source.x, source.y], radius);
-      const segments = breakIntersections([...wallSegments, ...circleSegments]);
+      const ellipseSegments = createEllipseSegments(
+        [source.x, source.y],
+        radiusX,
+        radiusY
+      );
+      const segments = breakIntersections([...wallSegments, ...ellipseSegments]);
       const poly = computeViewport(
         [source.x, source.y],
         segments,
@@ -266,7 +286,7 @@ function FogOfWarLayer({
     if (!showExplored) {
       return [];
     }
-    const explored = Array.isArray(mapState?.explored) ? mapState?.explored : [];
+    const explored = (mapState?.explored ?? []) as number[][][][];
     const result: Polygon[] = [];
     for (const entry of explored) {
       if (!Array.isArray(entry)) {
@@ -294,7 +314,7 @@ function FogOfWarLayer({
     if (!fogEnabled || visibilityPolygons.length === 0 || !onExploredChange) {
       return;
     }
-    const explored = Array.isArray(mapState?.explored) ? mapState?.explored : [];
+    const explored = (mapState?.explored ?? []) as number[][][][];
     if (
       exploredRef.current === explored &&
       visibilitySignatureRef.current === visibilitySignature
