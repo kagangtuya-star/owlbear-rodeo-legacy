@@ -8,6 +8,7 @@ import { TokenNotes } from "../types/TokenNote";
 import { SpellTemplateState } from "../types/SpellTemplate";
 import { TokenStates } from "../types/TokenState";
 import { WallState } from "../types/Wall";
+import { SetNetworkedState } from "./useNetworkedState";
 
 export type DrawingsAction = {
   type: "drawings";
@@ -40,7 +41,11 @@ export type MapActions = {
   actionIndex: number;
 };
 
-export type AddActionsEventHandler = (actions: MapAction[]) => void;
+export type AddActionsEventHandler = (
+  actions: MapAction[],
+  sync?: boolean,
+  updateLastSynced?: boolean
+) => void;
 export type UpdateActionIndexEventHandler = (change: number) => void;
 export type ResetActionsEventHandler = () => void;
 
@@ -50,7 +55,7 @@ const defaultMapActions: MapActions = {
 };
 
 function useMapActions(
-  setCurrentMapState: React.Dispatch<React.SetStateAction<MapState | null>>
+  setCurrentMapState: SetNetworkedState<MapState | null>
 ): [
   MapActions,
   AddActionsEventHandler,
@@ -125,7 +130,11 @@ function useMapActions(
     return mapState;
   }
 
-  function addActions(actions: MapAction[]) {
+  function addActions(
+    actions: MapAction[],
+    sync = true,
+    updateLastSynced = false
+  ) {
     setMapActions((prevActions) => {
       const newActions = [
         ...prevActions.actions.slice(0, prevActions.actionIndex + 1),
@@ -146,7 +155,7 @@ function useMapActions(
       let state = { ...prevMapState };
       state = applyMapActionsToState(state, actions);
       return state;
-    });
+    }, sync, false, updateLastSynced);
   }
 
   function updateActionIndex(change: number) {

@@ -39,6 +39,9 @@ export type TokenDragEventHandler = (
   tokenStateId: string,
   attachedTokenStateIds: string[]
 ) => void;
+export type TokenDragMoveEventHandler = (
+  positions: Record<string, { x: number; y: number }>
+) => void;
 
 export type NoteCreateEventHander = (notes: Note[]) => void;
 export type NoteRemoveEventHander = (noteIds: string[]) => void;

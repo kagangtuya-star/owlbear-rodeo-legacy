@@ -13,6 +13,7 @@ import { TokenNoteSettings } from "../types/Settings";
 import {
   TokenStateRemoveHandler,
   TokenStateChangeEventHandler,
+  TokenDragMoveEventHandler,
   TokensStateCreateHandler,
 } from "../types/Events";
 import { useState } from "react";
@@ -25,6 +26,12 @@ import { useUserId } from "../contexts/UserIdContext";
 import { useBlur, useKeyboard } from "../contexts/KeyboardContext";
 import shortcuts from "../shortcuts";
 
+type MapTokenPreviewOptions = {
+  enableTokenDragPreview?: boolean;
+  onTokenDragMove?: TokenDragMoveEventHandler;
+  onTokenDragPreviewEnd?: () => void;
+};
+
 function useMapTokens(
   map: Map | null,
   mapState: MapState | null,
@@ -36,7 +43,8 @@ function useMapTokens(
   onTokenNoteOpen?: (
     tokenStateId: string,
     options?: { mode?: "sheet" | "popover"; anchor?: Konva.Node | null }
-  ) => void
+  ) => void,
+  previewOptions?: MapTokenPreviewOptions
 ) {
   const userId = useUserId();
   const disabledTokens: Record<string, boolean> = {};
@@ -90,12 +98,17 @@ function useMapTokens(
     });
   }
 
+  const enableTokenDragPreview =
+    !!previewOptions?.enableTokenDragPreview &&
+    typeof previewOptions.onTokenDragMove === "function";
+
   function handleTokenDragEnd() {
     tokenDraggingOptions &&
       setTokenDraggingOptions({
         ...tokenDraggingOptions,
         dragging: false,
       });
+    previewOptions?.onTokenDragPreviewEnd?.();
   }
 
   function handleTokenStateRemove(tokenStateIds: string[]) {
@@ -153,6 +166,9 @@ function useMapTokens(
           onTokenMenuClose={handleTokenMenuClose}
           onTokenDragStart={handleTokenDragStart}
           onTokenDragEnd={handleTokenDragEnd}
+          onTokenDragMove={
+            enableTokenDragPreview ? previewOptions?.onTokenDragMove : undefined
+          }
           onTokenTransformStart={handleTokenTransformStart}
           onTokenTransformEnd={handleTokenTransformEnd}
           transforming={transformingTokensIds.includes(tokenState.id)}

@@ -427,6 +427,15 @@ function NetworkedMapAndTokens({
     addActions([{ type: "tokens", action }]);
   }
 
+  function isTokenPositionOnly(
+    changes: Record<string, Partial<TokenState>>
+  ): boolean {
+    const allowedKeys = new Set(["x", "y", "lastModified", "lastModifiedBy"]);
+    return Object.values(changes).every((change) =>
+      Object.keys(change).every((key) => allowedKeys.has(key))
+    );
+  }
+
   function handleMapTokenStateChange(
     changes: Record<string, Partial<TokenState>>
   ) {
@@ -435,6 +444,14 @@ function NetworkedMapAndTokens({
       edits.push({ ...changes[id], id });
     }
     const action = new EditStatesAction(edits);
+    if (currentMapState && isTokenPositionOnly(changes)) {
+      addActions([{ type: "tokens", action }], false, true);
+      session.socket?.emit("token_positions", {
+        mapId: currentMapState.mapId,
+        changes,
+      });
+      return;
+    }
     addActions([{ type: "tokens", action }]);
   }
 
@@ -682,14 +699,57 @@ function NetworkedMapAndTokens({
       }
     }
 
+    function handleTokenPositions(update: {
+      mapId?: string;
+      changes?: Record<string, Partial<TokenState>>;
+    }) {
+      if (!update || !update.changes) {
+        return;
+      }
+      setCurrentMapState(
+        (prevState) => {
+          if (!prevState || !update.mapId || prevState.mapId !== update.mapId) {
+            return prevState;
+          }
+          const nextTokens = { ...prevState.tokens };
+          const changes = update.changes ?? {};
+          for (const [id, change] of Object.entries(changes)) {
+            const existing = nextTokens[id];
+            if (!existing) {
+              continue;
+            }
+            if (existing.type === "file") {
+              nextTokens[id] = {
+                ...existing,
+                ...change,
+                type: "file",
+              };
+            } else {
+              nextTokens[id] = {
+                ...existing,
+                ...change,
+                type: "default",
+              };
+            }
+          }
+          return { ...prevState, tokens: nextTokens };
+        },
+        false,
+        false,
+        true
+      );
+    }
+
     session.on("peerData", handlePeerData);
     session.on("peerDataProgress", handlePeerDataProgress);
     session.socket?.on("map", handleSocketMap);
+    session.socket?.on("token_positions", handleTokenPositions);
 
     return () => {
       session.off("peerData", handlePeerData);
       session.off("peerDataProgress", handlePeerDataProgress);
       session.socket?.off("map", handleSocketMap);
+      session.socket?.off("token_positions", handleTokenPositions);
     };
   });
 

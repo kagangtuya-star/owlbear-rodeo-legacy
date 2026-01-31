@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Box } from "theme-ui";
 
 import MapControls from "./MapControls";
@@ -121,6 +121,38 @@ function Map({
   const [isTemplateDragging, setIsTemplateDragging] = useState(false);
   const templateTrashRef = useRef<HTMLDivElement | null>(null);
 
+  const [tokenDragPreview, setTokenDragPreview] = useState<
+    Record<string, { x: number; y: number }> | null
+  >(null);
+  const tokenDragPreviewEnabled = !!settings.fog?.previewOnDrag;
+  const tokenDragPreviewActive =
+    tokenDragPreviewEnabled &&
+    !!tokenDragPreview &&
+    Object.keys(tokenDragPreview).length > 0;
+
+  useEffect(() => {
+    if (!tokenDragPreviewEnabled && tokenDragPreview) {
+      setTokenDragPreview(null);
+    }
+  }, [tokenDragPreviewEnabled, tokenDragPreview]);
+
+  const handleTokenDragPreviewChange = useCallback(
+    (updates: Record<string, { x: number; y: number }>) => {
+      if (!tokenDragPreviewEnabled) {
+        return;
+      }
+      setTokenDragPreview(updates);
+    },
+    [tokenDragPreviewEnabled]
+  );
+
+  const handleTokenDragPreviewEnd = useCallback(() => {
+    if (!tokenDragPreviewEnabled) {
+      return;
+    }
+    setTokenDragPreview(null);
+  }, [tokenDragPreviewEnabled]);
+
   function handleToolSettingChange(change: Partial<Settings>) {
     setSettings((prevSettings) => ({
       ...prevSettings,
@@ -239,7 +271,12 @@ function Map({
     onMapTokensStateCreate,
     selectedToolId,
     settings.tokenNote,
-    openTokenNote
+    openTokenNote,
+    {
+      enableTokenDragPreview: tokenDragPreviewEnabled,
+      onTokenDragMove: handleTokenDragPreviewChange,
+      onTokenDragPreviewEnd: handleTokenDragPreviewEnd,
+    }
   );
 
   const { notes, noteMenu, noteHud, noteTextOverlay, noteDragOverlay } =
@@ -273,7 +310,15 @@ function Map({
             map={map}
             mapState={mapState}
             fogSettings={settings.fog}
-            onExploredChange={(explored) => onMapStateChange({ explored })}
+            onExploredChange={
+              tokenDragPreviewActive
+                ? undefined
+                : (explored) => onMapStateChange({ explored })
+            }
+            tokenPreview={
+              tokenDragPreviewActive ? tokenDragPreview ?? undefined : undefined
+            }
+            useTokenPreview={tokenDragPreviewEnabled}
           />
         }
         controls={

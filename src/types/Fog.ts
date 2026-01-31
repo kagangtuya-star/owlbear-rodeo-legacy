@@ -13,6 +13,7 @@ export type FogToolSettings = {
   multilayer: boolean;
   preview: boolean;
   useFogCut: boolean;
+  previewOnDrag?: boolean;
   showExplored?: boolean;
 };
 

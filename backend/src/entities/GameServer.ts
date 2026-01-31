@@ -8,6 +8,7 @@ import AssetStorage from "./AssetStorage";
 import { Update } from "../helpers/diff";
 import { Map } from "../types/Map";
 import { MapState } from "../types/MapState";
+import { TokenState } from "../types/TokenState";
 import { PlayerState } from "../types/PlayerState";
 import { Manifest } from "../types/Manifest";
 import { Pointer } from "../types/Pointer";
@@ -266,6 +267,57 @@ export default class GameServer {
           console.error("MAP_STATE_UPDATE_ERROR", error);
         }
       });
+
+      socket.on(
+        "token_positions",
+        async (update: {
+          mapId?: string;
+          changes?: Record<string, Partial<TokenState>>;
+        }) => {
+          try {
+            let gameId: string;
+            if (_gameId) {
+              gameId = _gameId;
+            } else {
+              const result = gameState.getGameId();
+              if (result) {
+                gameId = result;
+                _gameId = result;
+              } else {
+                return;
+              }
+            }
+
+            if (!update?.mapId || !update?.changes) {
+              return;
+            }
+
+            const state = this.gameRepo.getState(gameId, "mapState") as
+              | MapState
+              | undefined;
+            if (!state || state.mapId !== update.mapId) {
+              return;
+            }
+
+            for (const [id, change] of Object.entries(update.changes)) {
+              const existing = state.tokens?.[id];
+              if (!existing) {
+                continue;
+              }
+              if (existing.type === "file") {
+                state.tokens[id] = { ...existing, ...change, type: "file" };
+              } else {
+                state.tokens[id] = { ...existing, ...change, type: "default" };
+              }
+            }
+
+            this.gameRepo.setState(gameId, "mapState", state);
+            socket.broadcast.to(gameId).emit("token_positions", update);
+          } catch (error) {
+            console.error("TOKEN_POSITIONS_ERROR", error);
+          }
+        }
+      );
 
       socket.on("player_state", async (playerState: PlayerState) => {
         try {

@@ -1,4 +1,4 @@
-import { Flex, Text } from "theme-ui";
+import { Flex, IconButton, Text } from "theme-ui";
 import { useMedia } from "react-media";
 
 import RadioIconButton from "../RadioIconButton";
@@ -10,6 +10,8 @@ import FogRectangleIcon from "../../icons/FogRectangleIcon";
 import FogToggleIcon from "../../icons/FogToggleIcon";
 import FogCutOnIcon from "../../icons/FogCutOnIcon";
 import FogCutOffIcon from "../../icons/FogCutOffIcon";
+import FogPreviewOffIcon from "../../icons/FogPreviewOffIcon";
+import FogPreviewOnIcon from "../../icons/FogPreviewOnIcon";
 
 import ToolSection from "./shared/ToolSection";
 
@@ -48,6 +50,7 @@ function FogToolSettings({
   showExplored = false,
 }: FogToolSettingsProps) {
   const exploredVisible = !!showExplored;
+  const previewOnDrag = !!settings.previewOnDrag;
   // Keyboard shortcuts
   function handleKeyDown(event: KeyboardEvent) {
     if (shortcuts.fogPolygon(event)) {
@@ -102,6 +105,23 @@ function FogToolSettings({
       >
         {exploredVisible ? <FogCutOnIcon /> : <FogCutOffIcon />}
       </RadioIconButton>
+      <Divider vertical />
+      <IconButton
+        aria-label={
+          previewOnDrag
+            ? "Disable Real-time Lighting Preview"
+            : "Enable Real-time Lighting Preview"
+        }
+        title={
+          previewOnDrag
+            ? "Disable Real-time Lighting Preview"
+            : "Enable Real-time Lighting Preview"
+        }
+        onClick={() => onSettingChange({ previewOnDrag: !previewOnDrag })}
+        sx={{ color: previewOnDrag ? "primary" : "text" }}
+      >
+        {previewOnDrag ? <FogPreviewOnIcon /> : <FogPreviewOffIcon />}
+      </IconButton>
       {showGmOpacity && (
         <>
           <Divider vertical />

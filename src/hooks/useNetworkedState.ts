@@ -14,7 +14,8 @@ import Session from "../network/Session";
 export type SetNetworkedState<S> = (
   update: React.SetStateAction<S>,
   sync?: boolean,
-  force?: boolean
+  force?: boolean,
+  updateLastSynced?: boolean
 ) => void;
 
 type Update<T> = {
@@ -46,12 +47,14 @@ function useNetworkedState<S extends { readonly [x: string]: any } | null>(
 
   // Used to force a full update
   const forceUpdateRef = useRef(false);
+  const updateLastSyncedRef = useRef(false);
 
   // Update dirty at the same time as state
   const setState = useCallback<SetNetworkedState<S>>(
-    (update, sync = true, force = false) => {
+    (update, sync = true, force = false, updateLastSynced = false) => {
       dirtyRef.current = sync;
       forceUpdateRef.current = force;
+      updateLastSyncedRef.current = updateLastSynced;
       _setState(update);
     },
     []
@@ -82,6 +85,12 @@ function useNetworkedState<S extends { readonly [x: string]: any } | null>(
       dirtyRef.current = false;
       forceUpdateRef.current = false;
       lastSyncedStateRef.current = cloneDeep(debouncedState);
+      updateLastSyncedRef.current = false;
+      return;
+    }
+    if (updateLastSyncedRef.current) {
+      lastSyncedStateRef.current = cloneDeep(debouncedState);
+      updateLastSyncedRef.current = false;
     }
   }, [
     session.socket,

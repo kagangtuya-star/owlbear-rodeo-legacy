@@ -150,6 +150,17 @@ function loadVersions(settings: Settings) {
       showExplored: typeof prev?.fog?.showExplored === "boolean" ? prev.fog.showExplored : false,
     },
   }));
+  // v1.16.0 - Add real-time fog preview on token drag
+  settings.version(16, (prev: any) => ({
+    ...prev,
+    fog: {
+      ...prev.fog,
+      previewOnDrag:
+        typeof prev?.fog?.previewOnDrag === "boolean"
+          ? prev.fog.previewOnDrag
+          : false,
+    },
+  }));
 }
 
 export function getSettings() {

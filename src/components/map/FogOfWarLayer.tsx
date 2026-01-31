@@ -23,6 +23,8 @@ type FogOfWarLayerProps = {
   mapState: MapState | null;
   fogSettings?: FogSettings;
   onExploredChange?: (explored: number[][][][]) => void;
+  tokenPreview?: Record<string, { x: number; y: number }>;
+  useTokenPreview?: boolean;
 };
 
 type LightPolygon = {
@@ -76,6 +78,8 @@ function FogOfWarLayer({
   mapState,
   fogSettings,
   onExploredChange,
+  tokenPreview,
+  useTokenPreview,
 }: FogOfWarLayerProps) {
   const mapWidth = useMapWidth();
   const mapHeight = useMapHeight();
@@ -101,18 +105,34 @@ function FogOfWarLayer({
     return breakIntersections(segments);
   }, [walls]);
 
+  const tokens = useMemo(() => {
+    const baseTokens = Object.values(mapState?.tokens || {});
+    if (
+      !useTokenPreview ||
+      !tokenPreview ||
+      Object.keys(tokenPreview).length === 0
+    ) {
+      return baseTokens;
+    }
+    return baseTokens.map((token) => {
+      const override = tokenPreview[token.id];
+      if (!override) {
+        return token;
+      }
+      return { ...token, x: override.x, y: override.y };
+    });
+  }, [mapState, tokenPreview, useTokenPreview]);
+
   const tokensSignature = useMemo(() => {
-    const tokens = Object.values(mapState?.tokens || {});
     return tokens
       .map(
         (token) =>
           `${token.id}:${token.x}:${token.y}:${token.visible}:${token.hasVision}:${token.visionRange}:${token.lightConfig?.enabled}:${token.lightConfig?.radiusBright}:${token.lightConfig?.radiusDim}:${token.lightConfig?.color}`
       )
       .join("|");
-  }, [mapState]);
+  }, [tokens]);
 
   const visionSources = useMemo(() => {
-    const tokens = Object.values(mapState?.tokens || {});
     return tokens
       .filter((token) => token.hasVision && token.visible)
       .map((token) => ({
@@ -120,10 +140,9 @@ function FogOfWarLayer({
         y: token.y,
         range: typeof token.visionRange === "number" ? token.visionRange : 0,
       }));
-  }, [tokensSignature, mapState]);
+  }, [tokens, tokensSignature]);
 
   const lightSources = useMemo(() => {
-    const tokens = Object.values(mapState?.tokens || {});
     return tokens
       .filter((token) => token.visible && token.lightConfig?.enabled)
       .map((token) => ({
@@ -139,7 +158,7 @@ function FogOfWarLayer({
             : 0,
         color: token.lightConfig?.color || "#ffffff",
       }));
-  }, [tokensSignature, mapState]);
+  }, [tokens, tokensSignature]);
 
   const visibilityPolygons = useMemo(() => {
     if (!fogEnabled) {
@@ -259,22 +278,32 @@ function FogOfWarLayer({
     return result;
   }, [mapState?.explored, showExplored]);
 
-  const exploredSignatureRef = useRef<string>("");
+  const exploredRef = useRef<number[][][][] | undefined>(undefined);
+  const visibilitySignatureRef = useRef<string>("");
+  const visibilitySignature = useMemo(() => {
+    if (visibilityPolygons.length === 0) {
+      return "";
+    }
+    return JSON.stringify(visibilityPolygons);
+  }, [visibilityPolygons]);
   const exploredTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!fogEnabled || visibilityPolygons.length === 0 || !onExploredChange) {
       return;
     }
     const explored = mapState?.explored || [];
+    if (
+      exploredRef.current === explored &&
+      visibilitySignatureRef.current === visibilitySignature
+    ) {
+      return;
+    }
+    exploredRef.current = explored;
+    visibilitySignatureRef.current = visibilitySignature;
     const newExplored = [
       ...explored,
       ...visibilityPolygons.map((polygon) => [polygon]),
     ];
-    const signature = JSON.stringify(newExplored);
-    if (signature === exploredSignatureRef.current) {
-      return;
-    }
-    exploredSignatureRef.current = signature;
     if (exploredTimeoutRef.current) {
       clearTimeout(exploredTimeoutRef.current);
     }
@@ -287,7 +316,13 @@ function FogOfWarLayer({
         exploredTimeoutRef.current = null;
       }
     };
-  }, [fogEnabled, visibilityPolygons, mapState?.explored, onExploredChange]);
+  }, [
+    fogEnabled,
+    visibilityPolygons,
+    visibilitySignature,
+    mapState?.explored,
+    onExploredChange,
+  ]);
 
   if (!map || !mapState || !fogEnabled) {
     return null;

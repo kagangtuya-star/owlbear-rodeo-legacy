@@ -30,6 +30,7 @@ import { Map } from "../../types/Map";
 import { TokenNoteSettings } from "../../types/Settings";
 import {
   TokenDragEventHandler,
+  TokenDragMoveEventHandler,
   TokenMenuCloseChangeEventHandler,
   TokenMenuOpenChangeEventHandler,
   TokenStateChangeEventHandler,
@@ -46,6 +47,7 @@ type MapTokenProps = {
   onTokenMenuClose: TokenMenuCloseChangeEventHandler;
   onTokenDragStart: TokenDragEventHandler;
   onTokenDragEnd: TokenDragEventHandler;
+  onTokenDragMove?: TokenDragMoveEventHandler;
   onTokenTransformStart: CustomTransformEventHandler;
   onTokenTransformEnd: CustomTransformEventHandler;
   transforming: boolean;
@@ -71,6 +73,7 @@ function Token({
   onTokenMenuClose,
   onTokenDragStart,
   onTokenDragEnd,
+  onTokenDragMove,
   onTokenTransformStart,
   onTokenTransformEnd,
   transforming,
@@ -169,6 +172,24 @@ function Token({
       if (attachmentOverCharacter !== overCharacter) {
         setAttachmentOverCharacter(overCharacter);
       }
+    }
+
+    if (onTokenDragMove && mapWidth > 0 && mapHeight > 0) {
+      const updates: Record<string, { x: number; y: number }> = {
+        [tokenState.id]: {
+          x: tokenGroup.x() / mapWidth,
+          y: tokenGroup.y() / mapHeight,
+        },
+      };
+      if (attachedTokensRef.current.length > 0) {
+        for (let other of attachedTokensRef.current) {
+          updates[other.id()] = {
+            x: other.x() / mapWidth,
+            y: other.y() / mapHeight,
+          };
+        }
+      }
+      onTokenDragMove(updates);
     }
   }
 
