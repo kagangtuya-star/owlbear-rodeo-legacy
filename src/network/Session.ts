@@ -7,6 +7,18 @@ import { deflate, inflate } from "pako";
 
 import { omit } from "../helpers/shared";
 import AssetTransport from "./AssetTransport";
+import {
+  STREAM_CHUNK_EVENT,
+  STREAM_CHUNK_TTL_MS,
+  STREAM_EVENT,
+  StreamDecoded,
+  StreamEnvelope,
+  StreamSendOptions,
+  buildStreamFrames,
+  decodeStreamEnvelope,
+  isValidStreamTopic,
+  normalizeIncomingEnvelope,
+} from "./StreamProtocol";
 
 const MAX_CHUNK_SIZE = 16000;
 
@@ -29,6 +41,14 @@ type IncomingChunk = {
   buffers: (Uint8Array | undefined)[];
   count: number;
   total: number;
+};
+
+type IncomingStreamChunk = {
+  buffers: (Uint8Array | undefined)[];
+  count: number;
+  total: number;
+  expiresAt: number;
+  envelope: StreamEnvelope;
 };
 
 export type SessionPeer = {
@@ -54,6 +74,9 @@ export type PeerDataProgressEvent = {
   reply: PeerReply;
 };
 
+export type StreamEvent = StreamDecoded;
+export type StreamEventHandler = (event: StreamEvent) => void;
+
 export type SessionStatus =
   | "ready"
   | "joining"
@@ -71,17 +94,21 @@ export type GameExpiredHandler = () => void;
 class Session extends EventEmitter {
   socket?: Socket;
   private _incomingChunks: Record<string, IncomingChunk>;
+  private _incomingStreamChunks: Record<string, IncomingStreamChunk>;
   private _gameId: string;
   private _password: string;
   private peers: Record<string, SessionPeer>;
   private assetTransport: AssetTransport;
+  private streamDebugEnabled: boolean;
 
   constructor() {
     super();
     this._incomingChunks = {};
+    this._incomingStreamChunks = {};
     this._gameId = "";
     this._password = "";
     this.peers = {};
+    this.streamDebugEnabled = false;
     this.assetTransport = new AssetTransport({
       getLocalId: () => this.socket?.id,
       sendSignal: (event, payload) => {
@@ -93,6 +120,7 @@ class Session extends EventEmitter {
         console.info(message, payload);
       },
     });
+    this.installStreamDebugConsole();
   }
 
   get id() {
@@ -126,6 +154,7 @@ class Session extends EventEmitter {
     this.socket?.disconnect();
     this.socket = undefined;
     this._incomingChunks = {};
+    this._incomingStreamChunks = {};
     this.peers = {};
     this.assetTransport.dispose();
   }
@@ -222,6 +251,34 @@ class Session extends EventEmitter {
     return sentViaP2P;
   }
 
+  sendStream(topic: string, data: any, options?: StreamSendOptions) {
+    if (!this.socket) {
+      return;
+    }
+    if (!isValidStreamTopic(topic)) {
+      console.warn("STREAM_INVALID_TOPIC", topic);
+      return;
+    }
+    try {
+      const frames = buildStreamFrames(topic, data, options);
+      for (let frame of frames) {
+        const eventName =
+          frame.chunk && frame.chunk.total > 1 ? STREAM_CHUNK_EVENT : STREAM_EVENT;
+        this.socket.emit(eventName, frame);
+      }
+    } catch (error) {
+      console.error("STREAM_SEND_ERROR", error);
+    }
+  }
+
+  onStream(topic: string, handler: StreamEventHandler) {
+    if (!isValidStreamTopic(topic)) {
+      console.warn("STREAM_INVALID_TOPIC", topic);
+      return;
+    }
+    this.on(`stream:${topic}`, handler);
+  }
+
   private chunk(data: Uint8Array, chunkId: string): OutgoingChunkPayload[] {
     const size = data.byteLength;
     const total = Math.ceil(size / MAX_CHUNK_SIZE) || 1;
@@ -251,6 +308,8 @@ class Session extends EventEmitter {
     this.socket.io.on("reconnect", this.handleSocketReconnect);
     this.socket.on("force_update", this.handleForceUpdate);
     this.socket.on("relay_chunk", this.handleRelayChunk);
+    this.socket.on(STREAM_EVENT, this.handleStreamEnvelope);
+    this.socket.on(STREAM_CHUNK_EVENT, this.handleStreamEnvelope);
     this.socket.on("webrtc_offer", this.handleWebRtcOffer);
     this.socket.on("webrtc_answer", this.handleWebRtcAnswer);
     this.socket.on("webrtc_ice", this.handleWebRtcIce);
@@ -268,6 +327,7 @@ class Session extends EventEmitter {
     this.assetTransport.removePeer(id);
     this.emit("playerLeft", id);
     this.cleanupIncomingChunks(id);
+    this.cleanupIncomingStreamChunks(id);
   };
 
   private handleJoinedGame = () => {
@@ -290,6 +350,7 @@ class Session extends EventEmitter {
   private handleSocketDisconnect = () => {
     this.emit("status", "reconnecting");
     this._incomingChunks = {};
+    this._incomingStreamChunks = {};
     this.peers = {};
     this.assetTransport.dispose();
   };
@@ -381,6 +442,121 @@ class Session extends EventEmitter {
     }
   };
 
+  private handleStreamEnvelope = (payload: any) => {
+    const envelope = normalizeIncomingEnvelope(payload);
+    if (!envelope) {
+      return;
+    }
+
+    const from = envelope.from || "unknown";
+    if (envelope.chunk && envelope.chunk.total > 1) {
+      const { index, total } = envelope.chunk;
+      const key = `${from}:${envelope.id}`;
+      const now = Date.now();
+      let chunkState = this._incomingStreamChunks[key];
+      if (!chunkState || chunkState.total !== total || chunkState.expiresAt <= now) {
+        chunkState = {
+          buffers: new Array(total),
+          count: 0,
+          total,
+          expiresAt: now + STREAM_CHUNK_TTL_MS,
+          envelope,
+        };
+      }
+
+      if (!chunkState.buffers[index]) {
+        chunkState.count += 1;
+      }
+      chunkState.buffers[index] = envelope.data;
+      this._incomingStreamChunks[key] = chunkState;
+
+      if (chunkState.count === chunkState.total) {
+        try {
+          const merged = this.mergeChunks(chunkState.buffers);
+          const decoded = decodeStreamEnvelope(envelope, merged);
+          this.emitStream(decoded);
+        } catch (error) {
+          console.error("STREAM_DECODE_ERROR", error);
+        } finally {
+          delete this._incomingStreamChunks[key];
+        }
+      }
+      return;
+    }
+
+    try {
+      const decoded = decodeStreamEnvelope(envelope);
+      this.emitStream(decoded);
+    } catch (error) {
+      console.error("STREAM_DECODE_ERROR", error);
+    }
+  };
+
+  private emitStream = (event: StreamDecoded) => {
+    if (event.meta?.debug) {
+      console.info("STREAM_DEBUG_REMOTE", {
+        topic: event.topic,
+        from: event.from,
+        id: event.id,
+        data: event.data,
+      });
+    }
+    if (this.streamDebugEnabled) {
+      console.info("STREAM_DEBUG_RECEIVE", {
+        topic: event.topic,
+        from: event.from,
+        id: event.id,
+        data: event.data,
+        meta: event.meta,
+      });
+    }
+    this.emit("stream", event);
+    this.emit(`stream:${event.topic}`, event);
+  };
+
+  private enableStreamDebug = () => {
+    if (this.streamDebugEnabled) {
+      return;
+    }
+    this.streamDebugEnabled = true;
+    console.info("STREAM_DEBUG_ENABLED");
+  };
+
+  private disableStreamDebug = () => {
+    if (!this.streamDebugEnabled) {
+      return;
+    }
+    this.streamDebugEnabled = false;
+    console.info("STREAM_DEBUG_DISABLED");
+  };
+
+  private installStreamDebugConsole() {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const globalScope = window as any;
+    if (globalScope.OBRStreamDebug?.__attached) {
+      globalScope.OBRStreamDebug.__session = this;
+      return;
+    }
+    globalScope.OBRStreamDebug = {
+      __attached: true,
+      __session: this,
+      enable: () => this.enableStreamDebug(),
+      disable: () => this.disableStreamDebug(),
+      send: (topic: string, data: any, options?: StreamSendOptions) => {
+        const meta = { ...(options?.meta || {}), debug: true };
+        this.sendStream(topic, data, { ...options, meta });
+      },
+      status: () => this.streamDebugEnabled,
+      help: () => {
+        console.info("OBRStreamDebug.enable()");
+        console.info("OBRStreamDebug.send(\"ext.debug\", { hello: true })");
+        console.info("OBRStreamDebug.disable()");
+      },
+    };
+  }
+
   private handleWebRtcOffer = (payload: any) => {
     this.assetTransport.handleOffer(payload);
   };
@@ -420,11 +596,21 @@ class Session extends EventEmitter {
       }
     }
   }
+
+  private cleanupIncomingStreamChunks(peerId: string) {
+    for (let key of Object.keys(this._incomingStreamChunks)) {
+      if (key.startsWith(`${peerId}:`)) {
+        delete this._incomingStreamChunks[key];
+      }
+    }
+  }
 }
 
 declare interface Session {
   on(event: "peerData", listener: (event: PeerDataEvent) => void): this;
   on(event: "peerDataProgress", listener: (event: PeerDataProgressEvent) => void): this;
+  on(event: "stream", listener: StreamEventHandler): this;
+  on(event: `stream:${string}`, listener: StreamEventHandler): this;
   on(event: "status", listener: SessionStatusHandler): this;
   on(event: "playerJoined", listener: PlayerJoinedHandler): this;
   on(event: "playerLeft", listener: PlayerLeftHandler): this;
@@ -432,6 +618,8 @@ declare interface Session {
 
   off(event: "peerData", listener: (event: PeerDataEvent) => void): this;
   off(event: "peerDataProgress", listener: (event: PeerDataProgressEvent) => void): this;
+  off(event: "stream", listener: StreamEventHandler): this;
+  off(event: `stream:${string}`, listener: StreamEventHandler): this;
   off(event: "status", listener: SessionStatusHandler): this;
   off(event: "playerJoined", listener: PlayerJoinedHandler): this;
   off(event: "playerLeft", listener: PlayerLeftHandler): this;

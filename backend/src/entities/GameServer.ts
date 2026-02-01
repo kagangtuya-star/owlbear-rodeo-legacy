@@ -14,6 +14,11 @@ import { PlayerState } from "../types/PlayerState";
 import { Manifest } from "../types/Manifest";
 import { Pointer } from "../types/Pointer";
 
+const STREAM_PROTOCOL_VERSION = 1;
+const STREAM_MAX_SIZE = 1e7;
+const STREAM_MAX_CHUNKS = 2048;
+const STREAM_TOPIC_REGEX = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+
 export default class GameServer {
   private readonly io: IOServer;
   private gameRepo;
@@ -111,6 +116,93 @@ export default class GameServer {
         } catch (error) {
           console.error("RELAY_CHUNK_ERROR", error);
         }
+      });
+
+      const forwardStreamPayload = (event: string, payload: any) => {
+        try {
+          const {
+            v,
+            id,
+            topic,
+            enc,
+            comp,
+            size,
+            data,
+            chunk,
+            meta,
+          } = payload || {};
+
+          if (v !== STREAM_PROTOCOL_VERSION) {
+            return;
+          }
+          if (typeof id !== "string" || typeof topic !== "string") {
+            return;
+          }
+          if (!STREAM_TOPIC_REGEX.test(topic)) {
+            return;
+          }
+          if (enc !== "msgpack" && enc !== "json") {
+            return;
+          }
+          if (comp !== "none" && comp !== "deflate") {
+            return;
+          }
+          if (typeof size !== "number" || !Number.isFinite(size) || size <= 0) {
+            return;
+          }
+          if (size > STREAM_MAX_SIZE) {
+            return;
+          }
+          if (data === undefined) {
+            return;
+          }
+
+          if (chunk !== undefined) {
+            if (
+              typeof chunk !== "object" ||
+              typeof chunk.index !== "number" ||
+              typeof chunk.total !== "number" ||
+              chunk.total <= 0 ||
+              chunk.index < 0 ||
+              chunk.index >= chunk.total ||
+              chunk.total > STREAM_MAX_CHUNKS
+            ) {
+              return;
+            }
+          }
+
+          let gameId: string | undefined;
+          if (_gameId) {
+            gameId = _gameId;
+          } else {
+            gameId = gameState.getGameId();
+            if (gameId) {
+              _gameId = gameId;
+            }
+          }
+
+          if (!gameId) {
+            return;
+          }
+
+          const includeSelf = Boolean(meta?.includeSelf);
+          const forwardPayload = { ...payload, from: socket.id };
+          if (includeSelf) {
+            this.io.to(gameId).emit(event, forwardPayload);
+          } else {
+            socket.to(gameId).emit(event, forwardPayload);
+          }
+        } catch (error) {
+          console.error("EXT_STREAM_ERROR", error);
+        }
+      };
+
+      socket.on("ext_stream", (payload: any) => {
+        forwardStreamPayload("ext_stream", payload);
+      });
+
+      socket.on("ext_stream_chunk", (payload: any) => {
+        forwardStreamPayload("ext_stream_chunk", payload);
       });
 
       socket.on("webrtc_offer", (payload: any) => {
