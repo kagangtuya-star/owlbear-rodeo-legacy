@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Box, Button, Flex } from "theme-ui";
+import type { FocusEvent } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 
@@ -8,6 +9,7 @@ type TokenNoteEditorProps = {
   editable: boolean;
   showToolbar: boolean;
   onChange: (value: string) => void;
+  onBlur?: (event: FocusEvent<HTMLDivElement>) => void;
 };
 
 function TokenNoteEditor({
@@ -15,6 +17,7 @@ function TokenNoteEditor({
   editable,
   showToolbar,
   onChange,
+  onBlur,
 }: TokenNoteEditorProps) {
   const editor = useEditor({
     extensions: [StarterKit],
@@ -100,7 +103,7 @@ function TokenNoteEditor({
           },
         }}
       >
-        <EditorContent editor={editor} />
+        <EditorContent editor={editor} onBlur={onBlur} />
       </Box>
     </Box>
   );

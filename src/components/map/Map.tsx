@@ -259,6 +259,7 @@ function Map({
   const { tokenNoteSheet, tokenNotePopover, openTokenNote } = useTokenNotes(
     map,
     mapState,
+    session,
     onMapTokenNoteCreate,
     onMapTokenNoteChange,
     onMapTokenNoteRemove,

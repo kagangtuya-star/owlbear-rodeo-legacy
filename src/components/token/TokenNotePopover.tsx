@@ -6,6 +6,7 @@ import { useInteractionEmitter } from "../../contexts/MapInteractionContext";
 import { Token } from "../../types/Token";
 import { TokenState } from "../../types/TokenState";
 import { TokenNoteStyle } from "../../types/TokenNote";
+import EditTileIcon from "../../icons/EditTileIcon";
 import TokenNoteEditor from "./TokenNoteEditor";
 
 type TokenNotePopoverProps = {
@@ -16,9 +17,13 @@ type TokenNotePopoverProps = {
   style: TokenNoteStyle;
   canRead: boolean;
   canEdit: boolean;
+  isEditing: boolean;
   anchorNode?: Konva.Node;
+  lockOwnerId?: string;
   onRequestClose: () => void;
   onRequestExpand: () => void;
+  onRequestEdit: () => void;
+  onEditorBlur: () => void;
   onContentChange: (value: string) => void;
 };
 
@@ -30,9 +35,13 @@ function TokenNotePopover({
   style,
   canRead,
   canEdit,
+  isEditing,
   anchorNode,
+  lockOwnerId,
   onRequestClose,
   onRequestExpand,
+  onRequestEdit,
+  onEditorBlur,
   onContentChange,
 }: TokenNotePopoverProps) {
   const [colorMode] = useColorMode();
@@ -170,6 +179,16 @@ function TokenNotePopover({
           {headerTitle}
         </Text>
         <Flex sx={{ alignItems: "center", gap: 1 }}>
+          {canEdit && !isEditing && !lockOwnerId && (
+            <IconButton
+              aria-label="Edit"
+              title="Edit"
+              onClick={onRequestEdit}
+              sx={{ p: 1 }}
+            >
+              <EditTileIcon />
+            </IconButton>
+          )}
           <Button
             variant="secondary"
             onClick={onRequestExpand}
@@ -182,6 +201,11 @@ function TokenNotePopover({
           </IconButton>
         </Flex>
       </Flex>
+      {lockOwnerId && (
+        <Text variant="caption" sx={{ px: 2, pb: 1 }}>
+          对方正在输入…
+        </Text>
+      )}
       <Box
         data-note-scroll="true"
         sx={{
@@ -205,9 +229,16 @@ function TokenNotePopover({
       >
         <TokenNoteEditor
           content={content}
-          editable={canEdit}
+          editable={canEdit && isEditing}
           showToolbar={false}
           onChange={onContentChange}
+          onBlur={(event) => {
+            const nextTarget = event.relatedTarget as Node | null;
+            if (nextTarget && popoverRef.current?.contains(nextTarget)) {
+              return;
+            }
+            onEditorBlur();
+          }}
         />
       </Box>
     </Box>

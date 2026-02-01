@@ -3,6 +3,7 @@ import { Box, Button, Flex, IconButton, Text, useColorMode } from "theme-ui";
 
 import FullScreenExitIcon from "../../icons/FullScreenExitIcon";
 import FullScreenIcon from "../../icons/FullScreenIcon";
+import EditTileIcon from "../../icons/EditTileIcon";
 
 import TokenImage from "./TokenImage";
 import TokenNoteEditor from "./TokenNoteEditor";
@@ -10,6 +11,7 @@ import TokenNoteEditor from "./TokenNoteEditor";
 import { Token } from "../../types/Token";
 import { TokenState } from "../../types/TokenState";
 import { TokenNoteStyle } from "../../types/TokenNote";
+import type { TokenNoteLockReleaseReason } from "../../network/TokenNoteLockProtocol";
 
 type TokenNoteSheetProps = {
   isOpen: boolean;
@@ -23,10 +25,12 @@ type TokenNoteSheetProps = {
   isExpanded: boolean;
   blur: "none" | "low" | "high";
   fontSize: "sm" | "md" | "lg";
-  remoteEditingBy?: string;
+  lockOwnerId?: string;
+  lockReleaseReason?: TokenNoteLockReleaseReason | null;
   onRequestClose: () => void;
   onToggleExpanded: () => void;
   onRequestEdit: () => void;
+  onEditorBlur: () => void;
   onContentChange: (value: string) => void;
   onStyleChange: (style: Partial<TokenNoteStyle>) => void;
 };
@@ -43,15 +47,26 @@ function TokenNoteSheet({
   isExpanded,
   blur,
   fontSize,
-  remoteEditingBy,
+  lockOwnerId,
+  lockReleaseReason,
   onRequestClose,
   onToggleExpanded,
   onRequestEdit,
+  onEditorBlur,
   onContentChange,
   onStyleChange,
 }: TokenNoteSheetProps) {
   const [colorMode] = useColorMode();
   const sheetRef = useRef<HTMLDivElement>(null);
+  const isLocked = !!lockOwnerId;
+  const releaseMessage =
+    lockReleaseReason === "timeout"
+      ? "对方超时，便签已解锁"
+      : lockReleaseReason === "disconnect"
+      ? "对方断开，便签已解锁"
+      : lockReleaseReason === "owner"
+      ? "对方已结束编辑"
+      : "";
   useEffect(() => {
     if (!isOpen) {
       return;
@@ -155,6 +170,15 @@ function TokenNoteSheet({
             <Text variant="body2">{headerTitle}</Text>
           </Flex>
           <Flex sx={{ alignItems: "center", gap: 1 }}>
+            {canEdit && !isEditing && !isLocked && (
+              <IconButton
+                aria-label="Edit"
+                title="Edit"
+                onClick={onRequestEdit}
+              >
+                <EditTileIcon />
+              </IconButton>
+            )}
             <IconButton
               aria-label={isExpanded ? "Exit Fullscreen" : "Fullscreen"}
               title={isExpanded ? "Exit Fullscreen" : "Fullscreen"}
@@ -177,9 +201,14 @@ function TokenNoteSheet({
             mb: 2,
           }}
         />
-        {remoteEditingBy && (
+        {isLocked && (
           <Text variant="caption" sx={{ px: [2, 3], pb: 2 }}>
-            对方正在编辑
+            对方正在输入…
+          </Text>
+        )}
+        {!isLocked && releaseMessage && (
+          <Text variant="caption" sx={{ px: [2, 3], pb: 2 }}>
+            {releaseMessage}
           </Text>
         )}
         {isEditing && canEdit && (
@@ -245,6 +274,9 @@ function TokenNoteSheet({
             fontSize: fontSizeValue,
             lineHeight: 1.4,
             backgroundColor: style.backgroundColor || "transparent",
+            opacity: isLocked ? 0.6 : 1,
+            filter: isLocked ? "grayscale(0.15)" : "none",
+            transition: "opacity 150ms ease",
             minHeight: 0,
             overflowY: "auto",
             scrollbarWidth: "thin",
@@ -263,21 +295,23 @@ function TokenNoteSheet({
           }}
           onWheel={(event) => event.stopPropagation()}
           onWheelCapture={(event) => event.stopPropagation()}
-          onTouchMove={(event) => event.stopPropagation()}
-          onTouchMoveCapture={(event) => event.stopPropagation()}
-          onClick={() => {
-            if (canEdit && !isEditing) {
-              onRequestEdit();
+        onTouchMove={(event) => event.stopPropagation()}
+        onTouchMoveCapture={(event) => event.stopPropagation()}
+      >
+        <TokenNoteEditor
+          content={content}
+          editable={canEdit && isEditing}
+          showToolbar={canEdit && isEditing}
+          onChange={onContentChange}
+          onBlur={(event) => {
+            const nextTarget = event.relatedTarget as Node | null;
+            if (nextTarget && sheetRef.current?.contains(nextTarget)) {
+              return;
             }
+            onEditorBlur();
           }}
-        >
-          <TokenNoteEditor
-            content={content}
-            editable={canEdit && isEditing}
-            showToolbar={canEdit && isEditing}
-            onChange={onContentChange}
-          />
-        </Box>
+        />
+      </Box>
       </Box>
     </Box>
   );
