@@ -59,6 +59,10 @@ function isValidString(value: unknown, maxLength: number) {
   return typeof value === "string" && value.length > 0 && value.length <= maxLength;
 }
 
+function isValidLabel(value: unknown, maxLength: number) {
+  return typeof value === "string" && value.length <= maxLength;
+}
+
 function isValidBar(value: unknown): boolean {
   if (!isRecord(value)) {
     return false;
@@ -67,7 +71,7 @@ function isValidBar(value: unknown): boolean {
   if (!isValidString(id, MAX_ID_LENGTH)) {
     return false;
   }
-  if (!isValidString(label, MAX_LABEL_LENGTH)) {
+  if (!isValidLabel(label, MAX_LABEL_LENGTH)) {
     return false;
   }
   if (!isFiniteNumber(current)) {
@@ -95,14 +99,17 @@ function isValidValue(value: unknown): boolean {
   if (!isRecord(value)) {
     return false;
   }
-  const { id, label, value: rawValue, visibility } = value;
+  const { id, label, value: rawValue, visibility, color } = value;
   if (!isValidString(id, MAX_ID_LENGTH)) {
     return false;
   }
-  if (!isValidString(label, MAX_LABEL_LENGTH)) {
+  if (!isValidLabel(label, MAX_LABEL_LENGTH)) {
     return false;
   }
   if (typeof rawValue !== "number" && typeof rawValue !== "string") {
+    return false;
+  }
+  if (color !== undefined && color !== null && typeof color !== "string") {
     return false;
   }
   if (visibility !== undefined && !isValidVisibility(visibility)) {
