@@ -29,6 +29,54 @@ export const TokenStateSchema = {
       },
       required: ["enabled", "radiusBright"],
     },
+    TokenAttributeVisibility: {
+      enum: ["public", "private"],
+      type: "string",
+    },
+    TokenAttributeBar: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        label: { type: "string" },
+        current: { type: "number" },
+        min: { type: "number" },
+        max: { type: "number" },
+        color: { type: "string" },
+        showMinMax: { type: "boolean" },
+        visibility: { $ref: "#/definitions/TokenAttributeVisibility" },
+      },
+      required: ["id", "label", "current", "color"],
+    },
+    TokenAttributeValue: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        label: { type: "string" },
+        value: {
+          anyOf: [{ type: "number" }, { type: "string" }],
+        },
+        color: { type: "string" },
+        visibility: { $ref: "#/definitions/TokenAttributeVisibility" },
+      },
+      required: ["id", "label", "value"],
+    },
+    TokenAttributeState: {
+      type: "object",
+      properties: {
+        bars: {
+          type: "array",
+          items: { $ref: "#/definitions/TokenAttributeBar" },
+        },
+        values: {
+          type: "array",
+          items: { $ref: "#/definitions/TokenAttributeValue" },
+        },
+        version: { type: "number" },
+        updatedAt: { type: "number" },
+        updatedBy: { type: "string" },
+      },
+      required: ["bars", "values", "version", "updatedAt", "updatedBy"],
+    },
     BaseTokenState: {
       properties: {
         category: {
@@ -69,6 +117,9 @@ export const TokenStateSchema = {
             $ref: "color.json",
           },
           type: "array",
+        },
+        attributes: {
+          $ref: "#/definitions/TokenAttributeState",
         },
         tokenId: {
           type: "string",

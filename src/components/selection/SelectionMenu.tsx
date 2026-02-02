@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Box, Flex, IconButton } from "theme-ui";
+import { Box, Flex, IconButton, Input, Text } from "theme-ui";
 import { useToasts } from "react-toast-notifications";
 import { v4 as uuid } from "uuid";
 
@@ -35,10 +35,12 @@ import { getRelativePointerPosition } from "../../helpers/konva";
 import { useKeyboard } from "../../contexts/KeyboardContext";
 import shortcuts from "../../shortcuts";
 import { clipboardSupported } from "../../helpers/shared";
+import { buildNextAttributes, parseNumericExpression } from "../../helpers/tokenAttributes";
 
 type SelectionMenuProps = {
   isOpen: boolean;
   active: boolean;
+  effectMode: boolean;
   onRequestClose: RequestCloseEventHandler;
   onRequestOpen: () => void;
   selection: Selection | null;
@@ -52,6 +54,7 @@ type SelectionMenuProps = {
 function SelectionMenu({
   isOpen,
   active,
+  effectMode,
   onRequestClose,
   onRequestOpen,
   selection,
@@ -72,7 +75,8 @@ function SelectionMenu({
   const [menuLeft, setMenuLeft] = useState(0);
   const [menuTop, setMenuTop] = useState(0);
 
-  const selectionMenuWidth = selection === null ? 48 : 156;
+  const selectionMenuWidth =
+    selection === null ? 48 : effectMode ? 260 : 156;
 
   useEffect(() => {
     const mapStage = mapStageRef.current;
@@ -202,6 +206,67 @@ function SelectionMenu({
     updateSelectedItems({ locked: !itemsLocked });
     setItemsLocked(!itemsLocked);
   }
+
+  function handleApplyEffect() {
+    if (!selection || !mapState) {
+      addToast("No selection", { appearance: "warning" });
+      return;
+    }
+    const label = effectLabel.trim();
+    const expression = effectExpression.trim();
+    if (!expression) {
+      addToast("请输入表达式", { appearance: "error" });
+      return;
+    }
+    const tokenChanges: Record<string, Partial<TokenState>> = {};
+    let affected = 0;
+    for (let item of selection.items) {
+      if (item.type !== "token") {
+        continue;
+      }
+      const tokenState = mapState.tokens[item.id];
+      if (!tokenState || !tokenState.attributes) {
+        continue;
+      }
+      const bars = tokenState.attributes.bars || [];
+      const barIndex = label
+        ? bars.findIndex(
+            (bar) => bar.label.toLowerCase() === label.toLowerCase()
+          )
+        : bars.length > 0
+        ? 0
+        : -1;
+      if (barIndex < 0) {
+        continue;
+      }
+      const bar = bars[barIndex];
+      const result = parseNumericExpression(bar.current, expression);
+      if (!result.ok) {
+        addToast(result.error, { appearance: "error" });
+        return;
+      }
+      const nextBars = bars.map((existing, index) =>
+        index === barIndex ? { ...existing, current: result.value } : existing
+      );
+      const nextAttributes = buildNextAttributes(
+        tokenState.attributes,
+        nextBars,
+        tokenState.attributes.values,
+        userId || "unknown"
+      );
+      tokenChanges[tokenState.id] = { attributes: nextAttributes };
+      affected += 1;
+    }
+    if (affected === 0) {
+      addToast("没有匹配到可更新的属性", { appearance: "warning" });
+      return;
+    }
+    onSelectionItemsChange(tokenChanges, {});
+    addToast(`已更新 ${affected} 个 token`, { appearance: "success" });
+  }
+
+  const [effectLabel, setEffectLabel] = useState("HP");
+  const [effectExpression, setEffectExpression] = useState("+0");
 
   // Update lock and visible state depending on selected items
   useEffect(() => {
@@ -439,6 +504,47 @@ function SelectionMenu({
             </IconButton>
           )}
         </Flex>
+        {effectMode && selection && (
+          <Box mt={2}>
+            <Text variant="body2">效果应用</Text>
+            <Box mt={1}>
+              <Text variant="body2" sx={{ opacity: 0.8 }}>
+                目标条目
+              </Text>
+              <Input
+                value={effectLabel}
+                onChange={(e) => setEffectLabel(e.target.value)}
+                sx={{ width: "100%", px: 1, py: "2px", mt: 1 }}
+              />
+            </Box>
+            <Box mt={2}>
+              <Text variant="body2" sx={{ opacity: 0.8 }}>
+                表达式
+              </Text>
+              <Input
+                value={effectExpression}
+                onChange={(e) => setEffectExpression(e.target.value)}
+                sx={{ width: "100%", px: 1, py: "2px", mt: 1 }}
+              />
+            </Box>
+            <Box mt={2}>
+              <IconButton
+                onClick={handleApplyEffect}
+                aria-label="Apply Effect"
+                title="Apply Effect"
+                sx={{
+                  width: "100%",
+                  justifyContent: "center",
+                  backgroundColor: "muted",
+                }}
+              >
+                <Text as="span" sx={{ fontSize: "14px" }}>
+                  应用
+                </Text>
+              </IconButton>
+            </Box>
+          </Box>
+        )}
       </Box>
     </MapMenu>
   );

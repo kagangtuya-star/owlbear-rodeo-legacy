@@ -1,5 +1,6 @@
 import Konva from "konva";
 import { Outline } from "./Outline";
+import { TokenAttributeState } from "./TokenState";
 
 export type TokenCategory = "character" | "vehicle" | "prop" | "attachment";
 
@@ -9,6 +10,7 @@ export type BaseToken = {
   defaultSize: number;
   defaultCategory: TokenCategory;
   defaultLabel: string;
+  defaultAttributes?: TokenAttributeState;
   hideInSidebar: boolean;
   width: number;
   height: number;

@@ -118,6 +118,7 @@ function MapContols({
       disabled.push("measure");
       disabled.push("pointer");
       disabled.push("select");
+      disabled.push("effect");
     }
     if (!map || !allowMapDrawing) {
       disabled.push("drawing");
@@ -184,6 +185,12 @@ function MapContols({
       title: "Select Tool (S)",
       SettingsComponent: SelectToolSettings,
     },
+    effect: {
+      id: "effect",
+      icon: <SelectToolIcon />,
+      title: "Effect Tool",
+      SettingsComponent: SelectToolSettings,
+    },
     fog: {
       id: "fog",
       icon: <FogToolIcon />,
@@ -227,6 +234,7 @@ function MapContols({
   const tools: MapToolId[] = [
     "move",
     "select",
+    "effect",
     "fog",
     "drawing",
     "spellTemplates",
@@ -379,16 +387,23 @@ function MapContols({
         selectedToolId !== "drawing" &&
         selectedToolId !== "spellTemplates" &&
         selectedToolId !== "pointer" &&
-        selectedToolId !== "select")
+        selectedToolId !== "select" &&
+        selectedToolId !== "effect")
     ) {
       return null;
     }
     const selectedSettings =
       selectedToolId === "spellTemplates" && !toolSettings.spellTemplates
         ? defaultSpellTemplateSettings
+        : selectedToolId === "effect"
+        ? toolSettings.select
         : toolSettings[selectedToolId];
     const showGmOpacity =
       selectedToolId === "fog" && !!(map && map.owner === userId);
+    const disabledActions =
+      selectedToolId === "effect"
+        ? disabledSettings.select
+        : disabledSettings[selectedToolId];
     return (
       <Box
         sx={{
@@ -429,7 +444,7 @@ function MapContols({
             })
           }
           onToolAction={onToolAction}
-          disabledActions={disabledSettings[selectedToolId]}
+          disabledActions={disabledActions}
           selectedTemplateId={
             selectedToolId === "spellTemplates" ? selectedTemplateId : null
           }

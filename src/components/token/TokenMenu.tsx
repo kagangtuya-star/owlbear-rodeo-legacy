@@ -3,8 +3,13 @@ import { Box, Input, Flex, Text, IconButton, Checkbox, Label } from "theme-ui";
 import Konva from "konva";
 
 import MapMenu from "../map/MapMenu";
+import TokenAttributeEditor from "./TokenAttributeEditor";
 
 import colors, { Color, colorOptions } from "../../helpers/colors";
+import {
+  buildNextAttributes,
+  createEmptyAttributes,
+} from "../../helpers/tokenAttributes";
 
 import usePrevious from "../../hooks/usePrevious";
 
@@ -81,26 +86,32 @@ function TokenMenu({
 
   const wasOpen = usePrevious(isOpen);
 
+  const menuWidth = 240;
+  const sidePanelWidth = 200;
+
   const [menuLeft, setMenuLeft] = useState(0);
   const [menuTop, setMenuTop] = useState(0);
   const [visionLightOpen, setVisionLightOpen] = useState(false);
+  const [attributesOpen, setAttributesOpen] = useState(false);
   const sidePanelRef = useRef<HTMLDivElement | null>(null);
   const [sidePanelStyle, setSidePanelStyle] = useState<{
     left?: number;
     top?: number;
   }>({});
+  const sidePanelOpen = visionLightOpen || attributesOpen;
   useEffect(() => {
     if (isOpen && !wasOpen && tokenState) {
       setVisionLightOpen(false);
+      setAttributesOpen(false);
       // Update menu position
       if (tokenImage) {
         const imageRect = tokenImage.getClientRect();
         const mapElement = document.querySelector(".map");
         if (mapElement) {
           const mapRect = mapElement.getBoundingClientRect();
-          // Center X for the menu which is 156px wide
+          // Center X for the menu which is menuWidth px wide
           setMenuLeft(
-            mapRect.left + imageRect.x + imageRect.width / 2 - 156 / 2
+            mapRect.left + imageRect.x + imageRect.width / 2 - menuWidth / 2
           );
           // Y 20px from the bottom
           setMenuTop(mapRect.top + imageRect.y + imageRect.height + 20);
@@ -115,15 +126,14 @@ function TokenMenu({
   }, [fogEnabled, visionLightOpen]);
 
   useEffect(() => {
-    if (!visionLightOpen) {
+    if (!sidePanelOpen) {
       return;
     }
 
     function updateSidePanelPosition() {
       const panel = sidePanelRef.current;
-      const panelWidth = 180;
+      const panelWidth = sidePanelWidth;
       const panelGap = 8;
-      const menuWidth = 156;
 
       let left = menuLeft - panelWidth - panelGap;
       const minLeft = 8;
@@ -148,7 +158,7 @@ function TokenMenu({
     updateSidePanelPosition();
     window.addEventListener("resize", updateSidePanelPosition);
     return () => window.removeEventListener("resize", updateSidePanelPosition);
-  }, [visionLightOpen, menuLeft, menuTop]);
+  }, [sidePanelOpen, menuLeft, menuTop]);
 
   function handleLabelChange(event: React.ChangeEvent<HTMLInputElement>) {
     const label = event.target.value.substring(0, 48);
@@ -254,6 +264,34 @@ function TokenMenu({
           color: lightColor,
         },
       },
+      });
+  }
+
+  const canEditAttributes =
+    !!(map && tokenState && (map.owner === userId || tokenState.owner === userId));
+
+  const attributes = tokenState?.attributes
+    ? tokenState.attributes
+    : createEmptyAttributes(userId || "unknown");
+  const hasAttributes = attributes.bars.length > 0 || attributes.values.length > 0;
+  useEffect(() => {
+    if (hasAttributes) {
+      setAttributesOpen(true);
+    }
+  }, [hasAttributes, tokenState?.id]);
+
+  function updateAttributes(nextBars: typeof attributes.bars, nextValues: typeof attributes.values) {
+    if (!tokenState) {
+      return;
+    }
+    const nextAttributes = buildNextAttributes(
+      tokenState.attributes,
+      nextBars,
+      nextValues,
+      userId || "unknown"
+    );
+    onTokenStateChange({
+      [tokenState.id]: { attributes: nextAttributes },
     });
   }
 
@@ -294,7 +332,7 @@ function TokenMenu({
       style={{ overflow: "visible" }}
       onModalContent={handleModalContent}
     >
-      <Box sx={{ width: "156px", overflow: "visible" }} p={1}>
+      <Box sx={{ width: `${menuWidth}px`, overflow: "visible" }} p={1}>
         <Flex
           as="form"
           onSubmit={(e) => {
@@ -365,6 +403,35 @@ function TokenMenu({
               </Box>
             ))}
         </Box>
+        {tokenState && (
+          <Box mt={2} sx={{ position: "relative" }}>
+            <Flex sx={{ alignItems: "center", justifyContent: "space-between" }}>
+              <Text as="label" variant="body2">
+                Attributes
+              </Text>
+              <IconButton
+                aria-label="Toggle Attributes"
+                title="Toggle Attributes"
+                onClick={() =>
+                  setAttributesOpen((prev) => {
+                    if (hasAttributes && prev) {
+                      return true;
+                    }
+                    const next = !prev;
+                    if (next) {
+                      setVisionLightOpen(false);
+                    }
+                    return next;
+                  })
+                }
+                sx={{ transform: attributesOpen ? "rotate(180deg)" : "none" }}
+                disabled={hasAttributes && attributesOpen}
+              >
+                <ExpandMoreIcon />
+              </IconButton>
+            </Flex>
+          </Box>
+        )}
         {/* Only show hide and lock token actions to map owners */}
         {map && map.owner === userId && tokenState && (
           <>
@@ -418,7 +485,15 @@ function TokenMenu({
                   <IconButton
                     aria-label="Toggle Vision and Light"
                     title="Toggle Vision and Light"
-                    onClick={() => setVisionLightOpen((prev) => !prev)}
+                    onClick={() =>
+                      setVisionLightOpen((prev) => {
+                        const next = !prev;
+                        if (next) {
+                          setAttributesOpen(false);
+                        }
+                        return next;
+                      })
+                    }
                     sx={{
                       transform: visionLightOpen ? "rotate(180deg)" : "none",
                     }}
@@ -436,8 +511,8 @@ function TokenMenu({
             sx={{
               position: "fixed",
               top: sidePanelStyle.top ?? menuTop,
-              left: sidePanelStyle.left ?? menuLeft + 164,
-              width: "180px",
+              left: sidePanelStyle.left ?? menuLeft + menuWidth + 8,
+              width: `${sidePanelWidth}px`,
               backgroundColor: "overlay",
               borderRadius: "4px",
               zIndex: 1,
@@ -518,6 +593,30 @@ function TokenMenu({
             />
           </Box>
         )}
+        {tokenState && attributesOpen && (
+          <Box
+            ref={sidePanelRef}
+            sx={{
+              position: "fixed",
+              top: sidePanelStyle.top ?? menuTop,
+              left: sidePanelStyle.left ?? menuLeft + menuWidth + 8,
+              width: `${sidePanelWidth}px`,
+              backgroundColor: "overlay",
+              borderRadius: "4px",
+              zIndex: 1,
+            }}
+            p={2}
+          >
+            <TokenAttributeEditor
+              attributes={attributes}
+              onChange={updateAttributes}
+              canEdit={canEditAttributes}
+              title="Attributes"
+              compact
+            />
+          </Box>
+        )}
+
       </Box>
     </MapMenu>
   );

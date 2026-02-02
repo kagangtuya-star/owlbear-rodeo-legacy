@@ -80,8 +80,39 @@ function TokenLabel({ tokenState, width, height }: TokenLabelProps) {
   const textRef = useRef<Konva.Text>(null);
   const textSizerRef = useRef<Konva.Text>(null);
 
+  const overlayOffset = Math.max(0, Math.round(height * 0.12));
+  const baseSize = Math.min(width, height);
+  const scale = Math.min(1, baseSize / 72);
+  const barHeight = Math.max(5, Math.round(baseSize * 0.11 * scale));
+  const barPadding = Math.max(3, Math.round(barHeight * 0.2));
+  const barGap = 0;
+  const barCount = tokenState.attributes?.bars?.length ?? 0;
+  const availableBarHeight = height * 0.5;
+  const stackDown = barCount > 2;
+  const maxBars = stackDown
+    ? barCount
+    : Math.max(
+        1,
+        Math.floor((availableBarHeight + barGap) / (barHeight + barGap))
+      );
+  const barsToShowCount = Math.min(barCount, maxBars);
+  const baseBarY = height - barPadding - barHeight;
+  const bottomBarY =
+    barsToShowCount > 0
+      ? stackDown
+        ? baseBarY + (barsToShowCount - 1) * (barHeight + barGap)
+        : baseBarY
+      : null;
+  const labelGap = Math.max(2, Math.round(barHeight * 0.35));
+  const defaultLabelY =
+    height - (defaultFontSize * fontScale + paddingY) / 2 + overlayOffset;
+  const labelY =
+    bottomBarY !== null
+      ? bottomBarY + barHeight + labelGap + paddingY / 2
+      : defaultLabelY;
+
   return (
-    <Group y={height - (defaultFontSize * fontScale + paddingY) / 2}>
+    <Group y={labelY}>
       <Rect
         y={-paddingY / 2}
         width={rectWidth}

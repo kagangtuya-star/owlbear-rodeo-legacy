@@ -55,7 +55,7 @@ function useMapSelection(
     setIsSelectionMenuOpen(open);
   }
 
-  const active = selectedToolId === "select";
+  const active = selectedToolId === "select" || selectedToolId === "effect";
 
   // Remove selection when changing tools
   useEffect(() => {
@@ -158,6 +158,7 @@ function useMapSelection(
     <SelectionMenu
       isOpen={isSelectionMenuOpen}
       active={active}
+      effectMode={selectedToolId === "effect"}
       onRequestClose={() => setIsSelectionMenuOpen(false)}
       onRequestOpen={() => setIsSelectionMenuOpen(true)}
       selection={selection}

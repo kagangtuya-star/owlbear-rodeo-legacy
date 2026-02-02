@@ -4,6 +4,7 @@ import Konva from "konva";
 
 import blobToBuffer from "./blobToBuffer";
 import { createThumbnail, getImageOutline, imageToWebp } from "./image";
+import { cloneAttributesWithNewIds } from "./tokenAttributes";
 import { getFileNameFromUrl, guessImageMimeFromUrl } from "./url";
 import Vector2 from "./Vector2";
 
@@ -51,6 +52,12 @@ export function createTokenState(
       ...tokenState,
       hasVision: true,
       visionRange: options.visionRange ?? 4,
+    };
+  }
+  if (token.defaultAttributes) {
+    tokenState = {
+      ...tokenState,
+      attributes: cloneAttributesWithNewIds(token.defaultAttributes, userId),
     };
   }
   if (token.type === "file") {

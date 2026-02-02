@@ -20,6 +20,7 @@ import { useDataURL } from "../../contexts/AssetsContext";
 import TokenStatus from "./TokenStatus";
 import TokenLabel from "./TokenLabel";
 import TokenOutline from "./TokenOutline";
+import TokenAttributeBubble from "./TokenAttributeBubble";
 
 import { Intersection, getScaledOutline } from "../../helpers/token";
 import Vector2 from "../../helpers/Vector2";
@@ -89,6 +90,8 @@ function Token({
   onTokenNoteOpen,
 }: MapTokenProps) {
   const userId = useUserId();
+  const isMapOwner = map.owner === userId;
+  const isTokenOwner = tokenState.owner === userId;
 
   const mapWidth = useMapWidth();
   const mapHeight = useMapHeight();
@@ -585,6 +588,13 @@ function Token({
                 height={tokenHeight}
               />
             ) : null}
+            <TokenAttributeBubble
+              tokenState={tokenState}
+              width={tokenWidth}
+              height={tokenHeight}
+              isMapOwner={isMapOwner}
+              isTokenOwner={isTokenOwner}
+            />
           </Group>
         ) : null}
       </AnimatedGroup>

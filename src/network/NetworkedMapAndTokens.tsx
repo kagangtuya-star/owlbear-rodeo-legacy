@@ -11,6 +11,9 @@ import { useAssets } from "../contexts/AssetsContext";
 import useDebounce from "../hooks/useDebounce";
 import useNetworkedState from "../hooks/useNetworkedState";
 import useMapActions from "../hooks/useMapActions";
+import useTokenAttributesSync, {
+  TokenAttributeUpdateInput,
+} from "../hooks/useTokenAttributes";
 
 import Session, { PeerDataEvent, PeerDataProgressEvent } from "./Session";
 import useAssetTransfer from "./useAssetTransfer";
@@ -315,6 +318,9 @@ function NetworkedMapAndTokens({
   const [mapActions, addActions, updateActionIndex, resetActions] =
     useMapActions(setCurrentMapState);
 
+  const { sendTokenAttributesUpdate, sendTokenAttributesBulk } =
+    useTokenAttributesSync(session, currentMapState, setCurrentMapState);
+
   function handleMapReset(newMapState: MapState) {
     setCurrentMapState(newMapState, true, true);
     resetActions();
@@ -470,23 +476,91 @@ function NetworkedMapAndTokens({
     );
   }
 
+  function buildAttributeUpdate(
+    tokenStateId: string,
+    nextAttributes: TokenState["attributes"],
+    now: number
+  ) {
+    if (!currentMapState || !nextAttributes) {
+      return null;
+    }
+    const currentAttributes =
+      currentMapState.tokens[tokenStateId]?.attributes ?? null;
+    const baseBars = Array.isArray(nextAttributes.bars)
+      ? nextAttributes.bars
+      : currentAttributes?.bars ?? [];
+    const baseValues = Array.isArray(nextAttributes.values)
+      ? nextAttributes.values
+      : currentAttributes?.values ?? [];
+    const currentVersion = currentAttributes?.version ?? 0;
+    const requestedVersion =
+      typeof nextAttributes.version === "number"
+        ? nextAttributes.version
+        : currentVersion + 1;
+    const nextVersion =
+      requestedVersion <= currentVersion ? currentVersion + 1 : requestedVersion;
+    const nextUpdatedBy =
+      userId || nextAttributes.updatedBy || currentAttributes?.updatedBy || "unknown";
+    const normalizedAttributes = {
+      ...nextAttributes,
+      bars: baseBars,
+      values: baseValues,
+      version: nextVersion,
+      updatedAt: now,
+      updatedBy: nextUpdatedBy,
+    };
+    const updateInput: TokenAttributeUpdateInput = {
+      tokenStateId,
+      version: normalizedAttributes.version,
+      updatedAt: normalizedAttributes.updatedAt,
+      updatedBy: normalizedAttributes.updatedBy,
+      patch: { attributes: normalizedAttributes },
+    };
+    return { normalizedAttributes, updateInput };
+  }
+
   function handleMapTokenStateChange(
     changes: Record<string, Partial<TokenState>>
   ) {
-    let edits: Partial<TokenState>[] = [];
+    const now = Date.now();
+    const normalizedChanges: Record<string, Partial<TokenState>> = {};
+    const attributeUpdates: TokenAttributeUpdateInput[] = [];
     for (let id in changes) {
-      edits.push({ ...changes[id], id });
+      const change = changes[id];
+      let nextChange = { ...change };
+      if (change.attributes) {
+        const result = buildAttributeUpdate(id, change.attributes, now);
+        if (result) {
+          nextChange = {
+            ...nextChange,
+            attributes: result.normalizedAttributes,
+          };
+          attributeUpdates.push(result.updateInput);
+        }
+      }
+      normalizedChanges[id] = nextChange;
+    }
+
+    let edits: Partial<TokenState>[] = [];
+    for (let id in normalizedChanges) {
+      edits.push({ ...normalizedChanges[id], id });
     }
     const action = new EditStatesAction(edits);
-    if (currentMapState && isTokenPositionOnly(changes)) {
+    if (currentMapState && isTokenPositionOnly(normalizedChanges)) {
       addActions([{ type: "tokens", action }], false, true);
       session.socket?.emit("token_positions", {
         mapId: currentMapState.mapId,
-        changes,
+        changes: normalizedChanges,
       });
       return;
     }
     addActions([{ type: "tokens", action }]);
+
+    if (attributeUpdates.length === 1) {
+      sendTokenAttributesUpdate(attributeUpdates[0]);
+    } else if (attributeUpdates.length > 1) {
+      sendTokenAttributesBulk({ updates: attributeUpdates });
+    }
   }
 
   function handleMapTokenStateRemove(tokenStateIds: string[]) {
@@ -498,9 +572,28 @@ function NetworkedMapAndTokens({
     tokenChanges: Record<string, Partial<TokenState>>,
     noteChanges: Record<string, Partial<Note>>
   ) {
-    let tokenEdits: Partial<TokenState>[] = [];
+    const now = Date.now();
+    const normalizedTokenChanges: Record<string, Partial<TokenState>> = {};
+    const attributeUpdates: TokenAttributeUpdateInput[] = [];
     for (let id in tokenChanges) {
-      tokenEdits.push({ ...tokenChanges[id], id });
+      const change = tokenChanges[id];
+      let nextChange = { ...change };
+      if (change.attributes) {
+        const result = buildAttributeUpdate(id, change.attributes, now);
+        if (result) {
+          nextChange = {
+            ...nextChange,
+            attributes: result.normalizedAttributes,
+          };
+          attributeUpdates.push(result.updateInput);
+        }
+      }
+      normalizedTokenChanges[id] = nextChange;
+    }
+
+    let tokenEdits: Partial<TokenState>[] = [];
+    for (let id in normalizedTokenChanges) {
+      tokenEdits.push({ ...normalizedTokenChanges[id], id });
     }
     const tokenAction = new EditStatesAction(tokenEdits);
 
@@ -514,6 +607,12 @@ function NetworkedMapAndTokens({
       { type: "tokens", action: tokenAction },
       { type: "notes", action: noteAction },
     ]);
+
+    if (attributeUpdates.length === 1) {
+      sendTokenAttributesUpdate(attributeUpdates[0]);
+    } else if (attributeUpdates.length > 1) {
+      sendTokenAttributesBulk({ updates: attributeUpdates });
+    }
   }
 
   function handleSelectionItemsRemove(

@@ -5,6 +5,7 @@ export type MapToolId =
   | "map"
   | "move"
   | "select"
+  | "effect"
   | "fog"
   | "drawing"
   | "spellTemplates"
