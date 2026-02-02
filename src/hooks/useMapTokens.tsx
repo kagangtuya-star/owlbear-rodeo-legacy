@@ -15,22 +15,38 @@ import {
   TokenStateChangeEventHandler,
   TokenDragMoveEventHandler,
   TokensStateCreateHandler,
+  TokenAttributeCountOpenEventHandler,
+  TokenAttributeCountTarget,
 } from "../types/Events";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Konva from "konva";
 import Token from "../components/konva/Token";
 import { KonvaEventObject } from "konva/lib/Node";
 import TokenMenu from "../components/token/TokenMenu";
 import TokenDragOverlay from "../components/token/TokenDragOverlay";
+import MapMenu from "../components/map/MapMenu";
+import { Box, Input, Text } from "theme-ui";
 import { useUserId } from "../contexts/UserIdContext";
 import { useBlur, useKeyboard } from "../contexts/KeyboardContext";
 import shortcuts from "../shortcuts";
+import { buildNextAttributes, parseNumericExpression } from "../helpers/tokenAttributes";
 
 type MapTokenPreviewOptions = {
   enableTokenDragPreview?: boolean;
   onTokenDragMove?: TokenDragMoveEventHandler;
   onTokenDragPreviewEnd?: () => void;
 };
+
+type TokenAttributeCountMenuOptions = {
+  tokenStateId: string;
+  target: TokenAttributeCountTarget;
+  left: number;
+  top: number;
+};
+
+const countMenuWidth = 160;
+const countMenuHeight = 84;
+const countMenuPadding = 8;
 
 function useMapTokens(
   map: Map | null,
@@ -62,18 +78,142 @@ function useMapTokens(
   const [tokenMenuOptions, setTokenMenuOptions] = useState<TokenMenuOptions>();
   const [tokenDraggingOptions, setTokenDraggingOptions] =
     useState<TokenDraggingOptions>();
+  const [tokenAttributeCountMenu, setTokenAttributeCountMenu] =
+    useState<TokenAttributeCountMenuOptions | null>(null);
+  const [countInput, setCountInput] = useState("");
+  const [countError, setCountError] = useState<string | null>(null);
+  const countInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (tokenAttributeCountMenu && countInputRef.current) {
+      countInputRef.current.focus();
+      countInputRef.current.select();
+    }
+  }, [tokenAttributeCountMenu]);
 
   function handleTokenMenuOpen(
     tokenStateId: string,
     tokenImage: Konva.Node,
     focus: boolean
   ) {
+    setTokenAttributeCountMenu(null);
     setTokenMenuOptions({ tokenStateId, tokenImage, focus });
     setIsTokenMenuOpen(true);
   }
 
   function handleTokenMenuClose() {
     setIsTokenMenuOpen(false);
+  }
+
+  const handleTokenAttributeCountOpen: TokenAttributeCountOpenEventHandler = (
+    request
+  ) => {
+    const mapElement = document.querySelector(".map");
+    if (!mapElement) {
+      return;
+    }
+    const rect = request.node.getClientRect();
+    const mapRect = mapElement.getBoundingClientRect();
+    const anchorX = mapRect.left + rect.x + rect.width / 2;
+    const anchorY = mapRect.top + rect.y;
+
+    let left = anchorX - countMenuWidth / 2;
+    let top = anchorY - countMenuHeight - countMenuPadding;
+    if (top < countMenuPadding) {
+      top = anchorY + rect.height + countMenuPadding;
+    }
+    left = clamp(
+      left,
+      countMenuPadding,
+      window.innerWidth - countMenuWidth - countMenuPadding
+    );
+    top = clamp(
+      top,
+      countMenuPadding,
+      window.innerHeight - countMenuHeight - countMenuPadding
+    );
+
+    setTokenAttributeCountMenu({
+      tokenStateId: request.tokenStateId,
+      target: request.target,
+      left,
+      top,
+    });
+    setCountInput(`${request.target.current}`);
+    setCountError(null);
+  };
+
+  function closeTokenAttributeCountMenu() {
+    setTokenAttributeCountMenu(null);
+    setCountInput("");
+    setCountError(null);
+  }
+
+  function commitCountInput() {
+    if (!tokenAttributeCountMenu || !mapState) {
+      closeTokenAttributeCountMenu();
+      return;
+    }
+    const expression = countInput.trim();
+    if (!expression) {
+      closeTokenAttributeCountMenu();
+      return;
+    }
+    setCountError(null);
+    const result = parseNumericExpression(
+      tokenAttributeCountMenu.target.current,
+      expression
+    );
+    if (!result.ok) {
+      setCountError(result.error);
+      return;
+    }
+    const tokenState = mapState.tokens[tokenAttributeCountMenu.tokenStateId];
+    if (!tokenState?.attributes) {
+      closeTokenAttributeCountMenu();
+      return;
+    }
+    const nextBars = tokenState.attributes.bars || [];
+    const nextValues = tokenState.attributes.values || [];
+    if (tokenAttributeCountMenu.target.type === "bar") {
+      const index = nextBars.findIndex(
+        (bar) => bar.id === tokenAttributeCountMenu.target.id
+      );
+      if (index < 0) {
+        closeTokenAttributeCountMenu();
+        return;
+      }
+      const updatedBars = nextBars.map((bar, idx) =>
+        idx === index ? { ...bar, current: result.value } : bar
+      );
+      const nextAttributes = buildNextAttributes(
+        tokenState.attributes,
+        updatedBars,
+        nextValues,
+        userId || "unknown"
+      );
+      onTokenStateChange({ [tokenState.id]: { attributes: nextAttributes } });
+    } else {
+      const index = nextValues.findIndex(
+        (value) => value.id === tokenAttributeCountMenu.target.id
+      );
+      if (index < 0) {
+        closeTokenAttributeCountMenu();
+        return;
+      }
+      const updatedValues = nextValues.map((value, idx) =>
+        idx === index ? { ...value, value: result.value } : value
+      );
+      const nextAttributes = buildNextAttributes(
+        tokenState.attributes,
+        nextBars,
+        updatedValues,
+        userId || "unknown"
+      );
+      onTokenStateChange({ [tokenState.id]: { attributes: nextAttributes } });
+    }
+
+    closeTokenAttributeCountMenu();
   }
 
   function handleTokenDragStart(
@@ -164,6 +304,7 @@ function useMapTokens(
           onTokenStateChange={onTokenStateChange}
           onTokenMenuOpen={handleTokenMenuOpen}
           onTokenMenuClose={handleTokenMenuClose}
+          onTokenAttributeCountOpen={handleTokenAttributeCountOpen}
           onTokenDragStart={handleTokenDragStart}
           onTokenDragEnd={handleTokenDragEnd}
           onTokenDragMove={
@@ -234,6 +375,45 @@ function useMapTokens(
     />
   );
 
+  const tokenAttributeCountMenuOverlay = tokenAttributeCountMenu ? (
+    <MapMenu
+      isOpen={true}
+      onRequestClose={closeTokenAttributeCountMenu}
+      top={tokenAttributeCountMenu.top}
+      left={tokenAttributeCountMenu.left}
+      style={{ width: `${countMenuWidth}px` }}
+    >
+      <Box p={2}>
+        <Text variant="body2" sx={{ opacity: 0.8, mb: 1 }}>
+          {tokenAttributeCountMenu.target.label}
+        </Text>
+        <Input
+          ref={countInputRef}
+          value={countInput}
+          onChange={(event) => setCountInput(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              commitCountInput();
+            }
+            if (event.key === "Escape") {
+              event.preventDefault();
+              closeTokenAttributeCountMenu();
+            }
+          }}
+          sx={{ width: "100%", px: 2, py: 1, height: "28px" }}
+          placeholder={`${tokenAttributeCountMenu.target.current}`}
+          aria-label="Count"
+        />
+        {countError ? (
+          <Text variant="body2" sx={{ color: "red", mt: 1 }}>
+            {countError}
+          </Text>
+        ) : null}
+      </Box>
+    </MapMenu>
+  ) : null;
+
   const tokenDragOverlay = tokenDraggingOptions && (
     <TokenDragOverlay
       onTokenStateRemove={handleTokenStateRemove}
@@ -241,10 +421,20 @@ function useMapTokens(
     />
   );
 
-  return { tokens, propTokens, tokenMenu, tokenDragOverlay };
+  return {
+    tokens,
+    propTokens,
+    tokenMenu,
+    tokenAttributeCountMenu: tokenAttributeCountMenuOverlay,
+    tokenDragOverlay,
+  };
 }
 
 export default useMapTokens;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
 
 function getMapTokenCategoryWeight(category: TokenCategory) {
   switch (category) {

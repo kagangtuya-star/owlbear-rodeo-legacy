@@ -266,7 +266,13 @@ function Map({
     settings.tokenNote
   );
 
-  const { tokens, propTokens, tokenMenu, tokenDragOverlay } = useMapTokens(
+  const {
+    tokens,
+    propTokens,
+    tokenMenu,
+    tokenAttributeCountMenu,
+    tokenDragOverlay,
+  } = useMapTokens(
     map,
     mapState,
     onMapTokenStateChange,
@@ -363,6 +369,7 @@ function Map({
               </Box>
             )}
             {tokenMenu}
+            {tokenAttributeCountMenu}
             {noteMenu}
             {noteHud}
             {noteTextOverlay}

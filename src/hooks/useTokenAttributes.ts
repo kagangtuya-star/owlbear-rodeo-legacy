@@ -37,6 +37,8 @@ const TOKEN_ATTR_TOPICS = {
   bulk: "ext.token_attrs.bulk",
 };
 
+const LOG_TOKEN_ATTR_STREAM_WARNINGS = false;
+
 const CHANGE_ID_TTL_MS = 2 * 60 * 1000;
 const MAX_SEEN_CHANGE_IDS = 500;
 const MAX_ATTRIBUTE_ITEMS = 12;
@@ -363,7 +365,9 @@ function useTokenAttributesSync(
     function handleUpdate(payload: unknown) {
       const normalized = normalizeIncomingUpdate(payload);
       if (!normalized) {
-        console.warn("TOKEN_ATTR_STREAM_INVALID", payload);
+        if (LOG_TOKEN_ATTR_STREAM_WARNINGS) {
+          console.warn("TOKEN_ATTR_STREAM_INVALID", payload);
+        }
         return;
       }
       if (isChangeIdSeen(normalized.changeId)) {
@@ -384,7 +388,9 @@ function useTokenAttributesSync(
     function handleBulk(payload: unknown) {
       const normalized = normalizeIncomingBulk(payload);
       if (!normalized) {
-        console.warn("TOKEN_ATTR_STREAM_BULK_INVALID", payload);
+        if (LOG_TOKEN_ATTR_STREAM_WARNINGS) {
+          console.warn("TOKEN_ATTR_STREAM_BULK_INVALID", payload);
+        }
         return;
       }
       if (isChangeIdSeen(normalized.changeId)) {

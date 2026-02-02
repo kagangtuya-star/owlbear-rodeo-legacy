@@ -1,3 +1,4 @@
+import Konva from "konva";
 import { Circle, Group, Rect, Text } from "react-konva";
 
 import colors from "../../helpers/colors";
@@ -9,6 +10,8 @@ type TokenAttributeBubbleProps = {
   height: number;
   isMapOwner: boolean;
   isTokenOwner: boolean;
+  onBarClick?: (bar: TokenAttributeBar, node: Konva.Node) => void;
+  onValueClick?: (value: TokenAttributeValue, node: Konva.Node) => void;
 };
 
 const MAX_RING_ITEMS = 8;
@@ -68,6 +71,8 @@ function TokenAttributeBubble({
   height,
   isMapOwner,
   isTokenOwner,
+  onBarClick,
+  onValueClick,
 }: TokenAttributeBubbleProps) {
   const attributes = tokenState.attributes;
   if (!attributes) {
@@ -90,6 +95,7 @@ function TokenAttributeBubble({
       id: value.id,
       color: value.color || colors.blue,
       text: buildValueText(value),
+      value,
     }))
     .slice(0, MAX_RING_ITEMS);
 
@@ -127,6 +133,28 @@ function TokenAttributeBubble({
   const centerX = width / 2;
   const centerY = height / 2;
 
+  function handleBarClick(
+    event: Konva.KonvaEventObject<Event>,
+    bar: TokenAttributeBar
+  ) {
+    if (!onBarClick) {
+      return;
+    }
+    event.cancelBubble = true;
+    onBarClick(bar, event.currentTarget);
+  }
+
+  function handleValueClick(
+    event: Konva.KonvaEventObject<Event>,
+    value: TokenAttributeValue
+  ) {
+    if (!onValueClick) {
+      return;
+    }
+    event.cancelBubble = true;
+    onValueClick(value, event.currentTarget);
+  }
+
   return (
     <Group x={0} y={0}>
       {barsToShow.map((bar, index) => {
@@ -140,7 +168,12 @@ function TokenAttributeBubble({
           ? baseBarY + index * (barHeight + barGap)
           : baseBarY - index * (barHeight + barGap);
         return (
-          <Group key={bar.id}>
+          <Group
+            key={bar.id}
+            onClick={(event) => handleBarClick(event, bar)}
+            onTap={(event) => handleBarClick(event, bar)}
+            listening={!!onBarClick}
+          >
             <Rect
               x={barX}
               y={barY}
@@ -189,7 +222,14 @@ function TokenAttributeBubble({
         const x = centerX + Math.cos(angle) * ringRadius;
         const y = centerY + Math.sin(angle) * ringRadius;
         return (
-          <Group key={item.id} x={x} y={y}>
+          <Group
+            key={item.id}
+            x={x}
+            y={y}
+            onClick={(event) => handleValueClick(event, item.value)}
+            onTap={(event) => handleValueClick(event, item.value)}
+            listening={!!onValueClick}
+          >
             <Circle
               radius={markerRadius}
               fill={item.color}

@@ -26,12 +26,13 @@ import { Intersection, getScaledOutline } from "../../helpers/token";
 import Vector2 from "../../helpers/Vector2";
 
 import { tokenSources } from "../../tokens";
-import { TokenState } from "../../types/TokenState";
+import { TokenAttributeBar, TokenAttributeValue, TokenState } from "../../types/TokenState";
 import { Map } from "../../types/Map";
 import { TokenNoteSettings } from "../../types/Settings";
 import {
   TokenDragEventHandler,
   TokenDragMoveEventHandler,
+  TokenAttributeCountOpenEventHandler,
   TokenMenuCloseChangeEventHandler,
   TokenMenuOpenChangeEventHandler,
   TokenStateChangeEventHandler,
@@ -51,6 +52,7 @@ type MapTokenProps = {
   onTokenDragMove?: TokenDragMoveEventHandler;
   onTokenTransformStart: CustomTransformEventHandler;
   onTokenTransformEnd: CustomTransformEventHandler;
+  onTokenAttributeCountOpen?: TokenAttributeCountOpenEventHandler;
   transforming: boolean;
   draggable: boolean;
   selectable: boolean;
@@ -77,6 +79,7 @@ function Token({
   onTokenDragMove,
   onTokenTransformStart,
   onTokenTransformEnd,
+  onTokenAttributeCountOpen,
   transforming,
   draggable,
   selectable,
@@ -92,6 +95,7 @@ function Token({
   const userId = useUserId();
   const isMapOwner = map.owner === userId;
   const isTokenOwner = tokenState.owner === userId;
+  const canEditAttributes = isMapOwner || isTokenOwner;
 
   const mapWidth = useMapWidth();
   const mapHeight = useMapHeight();
@@ -493,6 +497,43 @@ function Token({
     }
   }, [getAttachedTokens, transformerActive]);
 
+  function handleBarCountRequest(bar: TokenAttributeBar, node: Konva.Node) {
+    if (!canEditAttributes || !onTokenAttributeCountOpen) {
+      return;
+    }
+    onTokenAttributeCountOpen({
+      tokenStateId: tokenState.id,
+      target: {
+        type: "bar",
+        id: bar.id,
+        label: bar.label || "Bar",
+        current: bar.current,
+      },
+      node,
+    });
+  }
+
+  function handleValueCountRequest(value: TokenAttributeValue, node: Konva.Node) {
+    if (!canEditAttributes || !onTokenAttributeCountOpen) {
+      return;
+    }
+    const numeric =
+      typeof value.value === "number" ? value.value : Number(value.value);
+    if (!Number.isFinite(numeric)) {
+      return;
+    }
+    onTokenAttributeCountOpen({
+      tokenStateId: tokenState.id,
+      target: {
+        type: "value",
+        id: value.id,
+        label: value.label || "Value",
+        current: numeric,
+      },
+      node,
+    });
+  }
+
   // When a token is hidden if you aren't the map owner hide it completely
   if (map && !tokenState.visible && map.owner !== userId) {
     return null;
@@ -594,6 +635,8 @@ function Token({
               height={tokenHeight}
               isMapOwner={isMapOwner}
               isTokenOwner={isTokenOwner}
+              onBarClick={canEditAttributes ? handleBarCountRequest : undefined}
+              onValueClick={canEditAttributes ? handleValueCountRequest : undefined}
             />
           </Group>
         ) : null}

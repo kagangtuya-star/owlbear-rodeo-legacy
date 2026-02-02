@@ -32,6 +32,17 @@ export type TokenMenuOpenChangeEventHandler = (
   tokenImage: Konva.Node,
   focus: boolean
 ) => void;
+export type TokenAttributeCountTarget = {
+  type: "bar" | "value";
+  id: string;
+  label: string;
+  current: number;
+};
+export type TokenAttributeCountOpenEventHandler = (request: {
+  tokenStateId: string;
+  target: TokenAttributeCountTarget;
+  node: Konva.Node;
+}) => void;
 export type TokenMenuCloseChangeEventHandler = () => void;
 export type TokenSettingsChangeEventHandler = (change: Partial<Token>) => void;
 export type TokenDragEventHandler = (
