@@ -136,7 +136,7 @@ function useNetworkedState<S extends { readonly [x: string]: any } | null>(
       session.socket?.off(eventName, handleSocketEvent);
       session.socket?.off(`${eventName}_update`, handleSocketUpdateEvent);
     };
-  }, [session.socket, eventName, partialUpdatesKey]);
+  }, [session.socket, eventName, partialUpdatesKey, normalize]);
 
   return [state, setState];
 }

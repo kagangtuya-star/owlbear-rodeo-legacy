@@ -359,7 +359,19 @@ function DrawingTool({
       mapStage.off("mousemove touchmove", handlePointerMove);
       mapStage.off("click tap", handlePointerClick);
     };
-  });
+  }, [
+    active,
+    isPen,
+    isDrag,
+    mapStageRef,
+    penDrawing,
+    getBrushPosition,
+    toolSettings.strokeWidth,
+    toolSettings.color,
+    toolSettings.useBlending,
+    toolSettings.opacity,
+    toolSettings.dashStyle,
+  ]);
 
   const finishPenDrawing = useCallback(() => {
     if (!penDrawing) {

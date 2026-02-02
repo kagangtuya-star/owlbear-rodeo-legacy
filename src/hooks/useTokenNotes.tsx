@@ -373,22 +373,7 @@ function useTokenNotes(
     }, LOCK_TTL_MS);
   }, [releaseLock]);
 
-  function openTokenNote(tokenStateId: string, options?: TokenNoteOpenOptions) {
-    if (!settings.enabled) {
-      return;
-    }
-    if (openTokenStateId && openTokenStateId !== tokenStateId) {
-      handleRequestClose();
-    }
-    setOpenTokenStateId(tokenStateId);
-    setOpenMode(options?.mode || "sheet");
-    setAnchorNode(options?.anchor || null);
-    setIsExpanded(false);
-    setIsEditing(false);
-    setLockReleaseReason(null);
-  }
-
-  function handleRequestClose() {
+  const handleRequestClose = useCallback(() => {
     if (!userId) {
       clearLockTimers();
       lockStateRef.current = null;
@@ -414,6 +399,21 @@ function useTokenNotes(
     setOpenTokenStateId(null);
     setOpenMode(null);
     setAnchorNode(null);
+    setLockReleaseReason(null);
+  }, [userId, isLockOwner, releaseLock, clearLockTimers]);
+
+  function openTokenNote(tokenStateId: string, options?: TokenNoteOpenOptions) {
+    if (!settings.enabled) {
+      return;
+    }
+    if (openTokenStateId && openTokenStateId !== tokenStateId) {
+      handleRequestClose();
+    }
+    setOpenTokenStateId(tokenStateId);
+    setOpenMode(options?.mode || "sheet");
+    setAnchorNode(options?.anchor || null);
+    setIsExpanded(false);
+    setIsEditing(false);
     setLockReleaseReason(null);
   }
 

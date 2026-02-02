@@ -102,7 +102,6 @@ function TokenAttributeBubble({
   const ringRadius = Math.max(minRingRadius, markerRadius + 2);
   const fontSize = Math.max(7, Math.round(markerRadius * 0.95));
   const strokeWidth = Math.max(1, Math.round(markerRadius * 0.18));
-  const textStrokeWidth = Math.max(1, Math.round(markerRadius * 0.12));
 
   const barHeight = Math.max(5, Math.round(baseSize * 0.11 * scale));
   const barGap = Math.max(1, Math.round(barHeight * 0.15));

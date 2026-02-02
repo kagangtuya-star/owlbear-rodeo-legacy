@@ -269,7 +269,7 @@ function WallTool({
       mapStage.off("mousemove touchmove", handlePointerMove);
       mapStage.off("click tap", handlePointerClick);
     };
-  });
+  }, [active, editable, isPen, mapStageRef, penWall, getBrushPosition]);
 
   const finishPenWall = useCallback(() => {
     if (!penWall) {

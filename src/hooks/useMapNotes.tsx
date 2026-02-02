@@ -183,9 +183,9 @@ function useMapNotes(
     onNoteChange,
   ]);
 
-  function handleNoteMenuClose() {
+  const handleNoteMenuClose = useCallback(() => {
     setIsNoteMenuOpen(false);
-  }
+  }, []);
 
   const handleTextHudClose = useCallback(() => {
     if (activeNote) {
