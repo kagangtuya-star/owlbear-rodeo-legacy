@@ -36,6 +36,7 @@ yarn install
 ```
 yarn build
 ```
+或者从pages分支下载build好的
 
 启动轻量生产服务器（二选一）：
 ```
