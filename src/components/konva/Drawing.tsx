@@ -68,6 +68,7 @@ function Drawing({ drawing, ...props }: DrawingProps) {
         lineJoin="round"
         {...defaultProps}
         {...props}
+        dash={dash}
       />
     );
   } else if (drawing.type === "shape") {
